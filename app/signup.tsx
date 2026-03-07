@@ -1,17 +1,49 @@
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { Link } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function SignupPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
-    router.replace("/(dashboard)");
+  const handleSignup = async () => {
+    if (!email || !password) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    const { error: authError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { full_name: name.trim() } },
+    });
+    setLoading(false);
+    if (authError) {
+      setError(authError.message);
+    } else {
+      setSuccess("Check your email to confirm your account.");
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: "leanledger://auth-callback" },
+    });
+    if (authError) setError(authError.message);
   };
 
   return (
@@ -33,11 +65,10 @@ export default function SignupPage() {
 
         {/* Social Signup */}
         <View className="gap-3 mb-6">
-          <Pressable className="flex-row items-center justify-center gap-2 py-3 border border-border rounded-lg">
-            <Feather name="github" size={18} color="#0F172A" />
-            <Text className="text-sm font-medium text-foreground">Continue with GitHub</Text>
-          </Pressable>
-          <Pressable className="flex-row items-center justify-center gap-2 py-3 border border-border rounded-lg">
+          <Pressable
+            className="flex-row items-center justify-center gap-2 py-3 border border-border rounded-lg"
+            onPress={handleGoogleSignup}
+          >
             <Feather name="mail" size={18} color="#0F172A" />
             <Text className="text-sm font-medium text-foreground">Continue with Google</Text>
           </Pressable>
@@ -98,11 +129,26 @@ export default function SignupPage() {
           </View>
         </View>
 
+        {/* Error / Success */}
+        {error ? (
+          <View className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 mb-4">
+            <Text className="text-sm text-red-600">{error}</Text>
+          </View>
+        ) : null}
+        {success ? (
+          <View className="bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 mb-4">
+            <Text className="text-sm text-green-700">{success}</Text>
+          </View>
+        ) : null}
+
         {/* Submit */}
         <Pressable
-          className="bg-primary py-3 rounded-lg items-center mb-4"
+          className="bg-primary py-3 rounded-lg items-center mb-4 flex-row justify-center gap-2"
           onPress={handleSignup}
+          disabled={loading}
+          style={{ opacity: loading ? 0.7 : 1 }}
         >
+          {loading && <ActivityIndicator size="small" color="#fff" />}
           <Text className="text-white font-semibold text-sm">Create Account</Text>
         </Pressable>
 
