@@ -1,38 +1,116 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
+import { WorkspaceProvider } from './src/context/WorkspaceContext';
+import LoginScreen from './src/screens/LoginScreen';
+import AppLayout from './src/components/AppLayout';
+import DashboardContent from './src/screens/DashboardContent';
+import SubscriptionsContent from './src/screens/SubscriptionsContent';
+import PriceCreepContent from './src/screens/PriceCreepContent';
+import SpendCategoriesContent from './src/screens/SpendCategoriesContent';
+import VendorAnalyticsContent from './src/screens/VendorAnalyticsContent';
+import VendorNegotiationsContent from './src/screens/VendorNegotiationsContent';
+import AutomatedCancellationContent from './src/screens/AutomatedCancellationContent';
+import AIRecommendationsContent from './src/screens/AIRecommendationsContent';
+import SavingsContent from './src/screens/SavingsContent';
+import { Colors } from './src/constants/colors';
+
+const PAGE_CONTENT: Record<string, React.ReactNode> = {
+  Dashboard: <DashboardContent />,
+  Subscriptions: <SubscriptionsContent />,
+  'Price Creep': <PriceCreepContent />,
+  'Spend Categories': <SpendCategoriesContent />,
+  'Vendor Analytics': <VendorAnalyticsContent />,
+  'Vendor Negotiations': <VendorNegotiationsContent />,
+  'Automated Cancellation': <AutomatedCancellationContent />,
+  'AI Recommendations': <AIRecommendationsContent />,
+  Savings: <SavingsContent />,
+};
 
 export default function App() {
-  const [supabaseStatus, setSupabaseStatus] = useState<string>('Checking…');
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  const [activeNav, setActiveNav] = useState('Dashboard');
 
   useEffect(() => {
-    async function check() {
-      const { error } = await supabase.auth.getSession();
-      setSupabaseStatus(error ? `Error: ${error.message}` : 'Supabase: connected');
+    if (!supabase) {
+      setLoading(false);
+      return;
     }
-    check();
+
+    const timeout = setTimeout(() => setLoading(false), 5000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => setSession(session))
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  const isLoggedIn = session || demoMode;
+
+  if (!isLoggedIn) {
+    return (
+      <>
+        <LoginScreen onDemoPress={() => setDemoMode(true)} />
+        <StatusBar style="dark" />
+      </>
+    );
+  }
+
+  const content = PAGE_CONTENT[activeNav] ?? <DashboardContent />;
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <Text style={styles.status}>{supabaseStatus}</Text>
-      <StatusBar style="auto" />
-    </View>
+    <WorkspaceProvider
+      userId={session?.user?.id ?? null}
+      isDemoMode={demoMode}
+    >
+      <View style={styles.root}>
+        <AppLayout
+          activeNav={activeNav}
+          onItemPress={setActiveNav}
+          onLogout={async () => { await supabase?.auth.signOut(); setActiveNav('Dashboard'); }}
+          userEmail={session?.user?.email ?? 'demo@finoptima.com'}
+        >
+          {content}
+        </AppLayout>
+      </View>
+      <StatusBar style="dark" />
+    </WorkspaceProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: { flex: 1 },
+  loading: {
     flex: 1,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  status: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#666',
+    backgroundColor: Colors.background,
   },
 });
