@@ -11,7 +11,7 @@ import Svg, {
   G,
 } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
-import { Typography } from '../../constants/typography';
+import { Typography, chartFontFamily } from '../../constants/typography';
 
 type Props = {
   width: number;
@@ -78,6 +78,7 @@ export default function LineChart({
                 x={pad.left - 10}
                 y={y + 4}
                 textAnchor="end"
+                fontFamily={chartFontFamily}
                 fontSize={Typography.chart.axisValue}
                 fill={Colors.textTertiary}
               >
@@ -97,6 +98,7 @@ export default function LineChart({
               x={p.x}
               y={pad.top + plotH + 24}
               textAnchor="middle"
+              fontFamily={chartFontFamily}
               fontSize={Typography.chart.axisLabel}
               fill={Colors.textTertiary}
             >

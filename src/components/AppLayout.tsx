@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { Colors } from '../constants/colors';
+import { useWorkspace, workspaceLabel, OVERVIEW_ID, type OverviewRange } from '../context/WorkspaceContext';
 
 type Props = {
   activeNav: string;
@@ -12,6 +13,8 @@ type Props = {
   children: React.ReactNode;
 };
 
+const SIDEBAR_WIDTH = 200;
+
 export default function AppLayout({
   activeNav,
   onItemPress,
@@ -19,17 +22,32 @@ export default function AppLayout({
   userEmail,
   children,
 }: Props) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { activeWorkspaceId, activeWorkspace, overviewRange } = useWorkspace();
+  const rangeLabel: Record<OverviewRange, string> = { all: 'All months', last3: 'Last 3 months', last6: 'Last 6 months' };
+  const viewingLabel = activeWorkspaceId === OVERVIEW_ID || !activeWorkspaceId
+    ? rangeLabel[overviewRange]
+    : activeWorkspace
+      ? workspaceLabel(activeWorkspace)
+      : 'All months';
+
   return (
     <View style={styles.root}>
-      <Sidebar
-        activeItem={activeNav}
-        onItemPress={onItemPress}
-        onLogout={onLogout}
-      />
+      <View style={[styles.sidebarWrap, { width: sidebarOpen ? SIDEBAR_WIDTH : 0 }]}>
+        <Sidebar
+          activeItem={activeNav}
+          onItemPress={onItemPress}
+          onLogout={onLogout}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </View>
       <View style={styles.main}>
         <TopBar
           userName={userEmail?.split('@')[0] ?? 'User'}
           userRole="Finance Director"
+          viewingLabel={viewingLabel}
+          sidebarOpen={sidebarOpen}
+          onMenuPress={() => setSidebarOpen(prev => !prev)}
         />
         <ScrollView
           style={styles.scroll}
@@ -48,6 +66,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     backgroundColor: Colors.background,
+  },
+  sidebarWrap: {
+    overflow: 'hidden',
   },
   main: {
     flex: 1,

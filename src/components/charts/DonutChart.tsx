@@ -1,14 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
-import { Typography } from '../../constants/typography';
+import { Typography, chartFontFamily } from '../../constants/typography';
 
 type Segment = {
   name: string;
   value: number;
   color: string;
 };
+
+const MAX_VISIBLE = 8;
 
 type Props = {
   width: number;
@@ -17,9 +19,16 @@ type Props = {
 };
 
 export default function DonutChart({ width, height, data }: Props) {
+  const [hovered, setHovered] = useState<string | null>(null);
+
   if (width <= 0 || data.length === 0) return null;
 
   const total = data.reduce((sum, d) => sum + d.value, 0);
+  const visible = data.slice(0, MAX_VISIBLE);
+  const rest = data.slice(MAX_VISIBLE);
+  const restValue = rest.reduce((s, d) => s + d.value, 0);
+  const displayData = restValue > 0 ? [...visible, { name: 'Other', value: restValue, color: Colors.textTertiary }] : visible;
+
   const radius = 70;
   const strokeWidth = 28;
   const cx = radius + strokeWidth / 2 + 10;
@@ -28,7 +37,7 @@ export default function DonutChart({ width, height, data }: Props) {
   const svgSize = (radius + strokeWidth / 2 + 10) * 2;
 
   let accumulated = 0;
-  const segments = data.map((d) => {
+  const segments = displayData.map((d) => {
     const arcLen = (d.value / total) * circumference;
     const offset = accumulated;
     accumulated += arcLen;
@@ -66,6 +75,7 @@ export default function DonutChart({ width, height, data }: Props) {
           x={cx}
           y={cy - 8}
           textAnchor="middle"
+          fontFamily={chartFontFamily}
           fontSize={Typography.chart.centerPrimary}
           fontWeight="700"
           fill={Colors.text}
@@ -76,25 +86,39 @@ export default function DonutChart({ width, height, data }: Props) {
           x={cx}
           y={cy + 14}
           textAnchor="middle"
+          fontFamily={chartFontFamily}
           fontSize={Typography.chart.centerSecondary}
           fill={Colors.textSecondary}
         >
-          Total Spend
+          Total
         </SvgText>
       </Svg>
 
       {legendWidth > 80 && (
         <View style={styles.legend}>
-          {data.map((d) => {
-            const pct = ((d.value / total) * 100).toFixed(0);
+          {displayData.map((d) => {
+            const pct = ((d.value / total) * 100).toFixed(1);
+            const isHovered = hovered === d.name;
             return (
-              <View key={d.name} style={styles.legendRow}>
+              <Pressable
+                key={d.name}
+                style={[styles.legendRow, isHovered && styles.legendRowHover]}
+                onHoverIn={Platform.OS === 'web' ? () => setHovered(d.name) : undefined}
+                onHoverOut={Platform.OS === 'web' ? () => setHovered(null) : undefined}
+              >
                 <View style={[styles.legendDot, { backgroundColor: d.color }]} />
-                <Text style={styles.legendLabel} numberOfLines={1}>
-                  {d.name}
-                </Text>
+                <View style={styles.legendTextWrap}>
+                  <Text style={styles.legendLabel} numberOfLines={1}>
+                    {d.name}
+                  </Text>
+                  {isHovered && (
+                    <Text style={styles.legendDetail}>
+                      ${d.value.toLocaleString()} · {pct}%
+                    </Text>
+                  )}
+                </View>
                 <Text style={styles.legendValue}>{pct}%</Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>
@@ -116,6 +140,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  legendRowHover: {
+    backgroundColor: Colors.sidebarActiveBg,
   },
   legendDot: {
     width: 10,
@@ -123,10 +153,18 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginRight: 10,
   },
-  legendLabel: {
+  legendTextWrap: {
     flex: 1,
+    minWidth: 0,
+  },
+  legendLabel: {
     fontSize: Typography.chart.legend,
     color: Colors.textSecondary,
+  },
+  legendDetail: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 2,
   },
   legendValue: {
     fontSize: Typography.chart.legend,

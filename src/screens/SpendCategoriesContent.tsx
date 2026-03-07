@@ -1,170 +1,167 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { contentStyles } from '../constants/contentStyles';
 import KPICard from '../components/KPICard';
 import DonutChart from '../components/charts/DonutChart';
-import {
-  spendCategoriesSummary,
-  spendDistribution,
-  categoryBreakdown,
-} from '../constants/dummyData';
-
-const spendKpis = [
-  {
-    title: 'Total Monthly Spend',
-    value: `$${(spendCategoriesSummary.totalMonthlySpend / 1000).toFixed(1)}K`,
-    change: `+${spendCategoriesSummary.vsLastMonth}% vs last month`,
-    positive: true,
-    icon: 'dollar-sign' as const,
-    color: '#22c55e',
-  },
-  {
-    title: 'Categories',
-    value: String(spendCategoriesSummary.categoriesCount),
-    change: 'Active spending categories',
-    positive: true,
-    icon: 'pie-chart' as const,
-    color: '#3b82f6',
-  },
-  {
-    title: 'Fastest Growing',
-    value: spendCategoriesSummary.fastestGrowing,
-    change: `+${spendCategoriesSummary.fastestGrowingPct}% growth`,
-    positive: true,
-    icon: 'trending-up' as const,
-    color: '#f59e0b',
-  },
-  {
-    title: 'Top Category',
-    value: spendCategoriesSummary.topCategory,
-    change: `${spendCategoriesSummary.topCategoryPct}% of total spend`,
-    positive: true,
-    icon: 'percent' as const,
-    color: '#a855f7',
-  },
-];
-
-const categoryColors: Record<string, string> = {
-  'Cloud Services': '#3b82f6',
-  'CRM & Sales': '#22c55e',
-  'Marketing Tools': '#f59e0b',
-  'Communications': '#a855f7',
-  'Design Tools': '#ec4899',
-};
+import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
+import { useWorkspace } from '../context/WorkspaceContext';
+import { useWorkspaceData } from '../hooks/useWorkspaceData';
 
 export default function SpendCategoriesContent() {
   const [donutW, setDonutW] = useState(0);
-  const maxBreakdown = Math.max(...categoryBreakdown.map((c) => c.amount));
+  const { activeWorkspaceTransactions, activeWorkspaceId } = useWorkspace();
+  const {
+    totalAmount,
+    byCategory,
+    subscriptionCount,
+    isEmpty,
+  } = useWorkspaceData(activeWorkspaceTransactions);
+
+  if (isEmpty) {
+    return (
+      <>
+      <Text style={contentStyles.pageTitle}>Where your money went</Text>
+      <Text style={contentStyles.pageSubtitle}>
+        Spending grouped by type (e.g. software, phone, supplies). Add a statement to see your breakdown.
+      </Text>
+        <WorkspaceEmptyState activeWorkspaceId={activeWorkspaceId} />
+      </>
+    );
+  }
+
+  const topCategory = byCategory[0];
+  const kpis = [
+    {
+      title: 'Total spend',
+      value: `$${(totalAmount / 1000).toFixed(1)}K`,
+      change: 'In this view',
+      positive: true,
+      icon: 'dollar-sign' as const,
+      color: '#22c55e',
+    },
+    {
+      title: 'Categories',
+      value: String(byCategory.length),
+      change: 'With spend',
+      positive: true,
+      icon: 'pie-chart' as const,
+      color: '#3b82f6',
+    },
+    {
+      title: 'Vendors',
+      value: String(subscriptionCount),
+      change: 'Unique vendors',
+      positive: true,
+      icon: 'layers' as const,
+      color: '#f59e0b',
+    },
+    {
+      title: 'Top category',
+      value: topCategory?.name ?? '—',
+      change: topCategory ? `${((topCategory.value / totalAmount) * 100).toFixed(0)}% of total` : '—',
+      positive: true,
+      icon: 'percent' as const,
+      color: '#a855f7',
+    },
+  ];
 
   return (
     <>
-      <Text style={contentStyles.pageTitle}>Spend Categories</Text>
+      <Text style={contentStyles.pageTitle}>Where your money went</Text>
       <Text style={contentStyles.pageSubtitle}>
-        Analyze spending patterns across different service categories.
+        Your spending grouped by type — see where most of your money goes.
       </Text>
 
       <View style={contentStyles.kpiRow}>
-        {spendKpis.map((kpi, i) => (
+        {kpis.map((kpi, i) => (
           <View key={kpi.title} style={[contentStyles.kpiItem, i === 0 && contentStyles.kpiItemFirst]}>
             <KPICard {...kpi} />
           </View>
         ))}
       </View>
 
-      <View style={contentStyles.chartsRow}>
-        <View
-          style={[contentStyles.chartCard, { flex: 1 }]}
-          onLayout={(e: LayoutChangeEvent) => setDonutW(e.nativeEvent.layout.width)}
-        >
-          <Text style={contentStyles.cardTitle}>Spend Distribution</Text>
-          <Text style={contentStyles.cardSubtitle}>Current month breakdown</Text>
-          {donutW > 0 && (
-            <DonutChart
-              width={donutW - 48}
-              height={280}
-              data={spendDistribution.map((d) => ({ name: d.name, value: d.value, color: d.color }))}
-            />
-          )}
-        </View>
-        <View style={[contentStyles.chartCard, contentStyles.chartCardSecond, { flex: 1 }]}>
-          <Text style={contentStyles.cardTitle}>Category Breakdown</Text>
-          <Text style={contentStyles.cardSubtitle}>Monthly spending by category</Text>
-          {categoryBreakdown.map((c) => (
-            <View key={c.name} style={styles.breakdownRow}>
-              <View style={styles.breakdownLabel}>
-                <View style={[styles.dot, { backgroundColor: categoryColors[c.name] ?? Colors.textTertiary }]} />
-                <Text style={styles.breakdownName}>{c.name}</Text>
-              </View>
-              <View style={styles.breakdownBarWrap}>
-                <View
-                  style={[
-                    styles.breakdownBar,
-                    {
-                      width: `${(c.amount / maxBreakdown) * 100}%`,
-                      backgroundColor: categoryColors[c.name] ?? Colors.textTertiary,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.breakdownPct, c.pctChange < 0 && styles.negative]}>
-                {c.pctChange > 0 ? '+' : ''}{c.pctChange}%
-              </Text>
-              <Text style={styles.breakdownAmount}>${(c.amount / 1000).toFixed(1)}K</Text>
-            </View>
-          ))}
-        </View>
+      <View
+        style={[contentStyles.chartCard, { marginTop: 24 }]}
+        onLayout={(e: LayoutChangeEvent) => setDonutW(e.nativeEvent.layout.width)}
+      >
+        <Text style={styles.chartTitle}>Spend by category</Text>
+        <Text style={styles.chartSubtitle}>Derived from vendor → category mapping</Text>
+        {donutW > 0 && byCategory.length > 0 && (
+          <View style={contentStyles.donutContainer}>
+            <DonutChart width={donutW - 48} height={240} data={byCategory} />
+          </View>
+        )}
+        {byCategory.length === 0 && (
+          <Text style={styles.noCategories}>No categories from transactions.</Text>
+        )}
       </View>
+
+      {byCategory.length > 0 && (
+        <View style={contentStyles.card}>
+          <Text style={contentStyles.cardTitle}>Category breakdown</Text>
+          <View style={styles.breakdownTable}>
+            {byCategory.map((c, i) => (
+              <View key={i} style={styles.breakdownRow}>
+                <View style={[styles.breakdownBar, { width: `${(c.value / totalAmount) * 100}%`, backgroundColor: c.color }]} />
+                <Text style={styles.breakdownName}>{c.name}</Text>
+                <Text style={styles.breakdownValue}>${c.value.toLocaleString()}</Text>
+                <Text style={styles.breakdownPct}>{((c.value / totalAmount) * 100).toFixed(0)}%</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  chartSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+  },
+  noCategories: {
+    fontSize: 14,
+    color: Colors.textTertiary,
+    padding: 24,
+  },
+  breakdownTable: { marginTop: 16 },
   breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  breakdownLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: 130,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  breakdownName: {
-    fontSize: 13,
-    color: Colors.text,
-  },
-  breakdownBarWrap: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.inputBg,
-    marginHorizontal: 12,
-    overflow: 'hidden',
+    marginBottom: 12,
+    gap: 12,
   },
   breakdownBar: {
-    height: '100%',
+    height: 8,
     borderRadius: 4,
+    minWidth: 4,
   },
-  breakdownPct: {
-    width: 40,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'right',
+  breakdownName: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.text,
+    minWidth: 0,
   },
-  negative: { color: '#ef4444' },
-  breakdownAmount: {
-    width: 56,
+  breakdownValue: {
     fontSize: 13,
     fontWeight: '600',
     color: Colors.text,
+    width: 80,
+    textAlign: 'right',
+  },
+  breakdownPct: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    width: 40,
     textAlign: 'right',
   },
 });

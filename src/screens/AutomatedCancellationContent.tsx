@@ -1,122 +1,132 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { contentStyles } from '../constants/contentStyles';
 import StatusPill from '../components/StatusPill';
-import { cancellationKpis, cancellationQueue } from '../constants/dummyData';
+import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
+import { useWorkspace } from '../context/WorkspaceContext';
+import { useWorkspaceData } from '../hooks/useWorkspaceData';
 
 export default function AutomatedCancellationContent() {
+  const { activeWorkspaceTransactions, activeWorkspaceId } = useWorkspace();
+  const { subscriptions, totalAmount, isEmpty } = useWorkspaceData(activeWorkspaceTransactions);
+
+  const cancellationCandidates = useMemo(() => {
+    return subscriptions
+      .filter(s => s.isDuplicate || (s.count > 1))
+      .map(s => ({
+        vendor: s.vendor,
+        category: s.category,
+        monthlyCost: s.totalAmount,
+        chargeCount: s.count,
+        annualSavings: s.totalAmount * 12,
+        reason: s.isDuplicate ? 'Duplicate charges this period — possible redundant subscription' : `${s.count} charges — review for consolidation`,
+      }))
+      .sort((a, b) => b.annualSavings - a.annualSavings);
+  }, [subscriptions]);
+
+  const potentialAnnualSavings = cancellationCandidates.reduce((s, c) => s + c.annualSavings, 0);
+
+  if (isEmpty) {
+    return (
+      <>
+      <Text style={contentStyles.pageTitle}>Cancel duplicates</Text>
+      <Text style={contentStyles.pageSubtitle}>
+        Same company charged you more than once? Here are candidates to cancel and save. Add a statement to see them.
+      </Text>
+        <WorkspaceEmptyState activeWorkspaceId={activeWorkspaceId} />
+      </>
+    );
+  }
+
   return (
     <>
-      <Text style={contentStyles.pageTitle}>Automated Cancellation</Text>
+      <Text style={contentStyles.pageTitle}>Cancel duplicates</Text>
       <Text style={contentStyles.pageSubtitle}>
-        AI-powered detection and cancellation of unused licenses and subscriptions.
+        We found companies that charged you more than once this period — you may be able to cancel the extra and save.
       </Text>
 
       <View style={contentStyles.kpiRow}>
         <View style={[contentStyles.kpiItem, contentStyles.kpiItemFirst]}>
           <View style={styles.kpiCard}>
             <Feather name="dollar-sign" size={22} color="#22c55e" />
-            <Text style={styles.kpiValue}>${(cancellationKpis.potentialSavings / 1000).toFixed(1)}K</Text>
-            <Text style={[styles.kpiLabel, { color: '#22c55e' }]}>Annual savings available</Text>
+            <Text style={styles.kpiValue}>${(potentialAnnualSavings / 1000).toFixed(1)}K</Text>
+            <Text style={[styles.kpiLabel, { color: '#22c55e' }]}>Annual savings if cancelled</Text>
           </View>
         </View>
         <View style={contentStyles.kpiItem}>
           <View style={styles.kpiCard}>
             <Feather name="x-circle" size={22} color="#ef4444" />
-            <Text style={styles.kpiValue}>{cancellationKpis.readyToCancel}</Text>
-            <Text style={[styles.kpiLabel, { color: '#ef4444' }]}>High confidence items</Text>
+            <Text style={styles.kpiValue}>{cancellationCandidates.length}</Text>
+            <Text style={styles.kpiLabel}>Duplicate / multi-charge</Text>
           </View>
         </View>
         <View style={contentStyles.kpiItem}>
           <View style={styles.kpiCard}>
-            <Feather name="users" size={22} color="#3b82f6" />
-            <Text style={styles.kpiValue}>{cancellationKpis.inactiveUsers}</Text>
-            <Text style={styles.kpiLabel}>90+ days no activity</Text>
+            <Feather name="layers" size={22} color="#3b82f6" />
+            <Text style={styles.kpiValue}>{subscriptions.length}</Text>
+            <Text style={styles.kpiLabel}>Total vendors in view</Text>
           </View>
         </View>
         <View style={contentStyles.kpiItem}>
           <View style={styles.kpiCard}>
-            <Feather name="check-circle" size={22} color="#22c55e" />
-            <Text style={styles.kpiValue}>${(cancellationKpis.savedThisMonth / 1000).toFixed(1)}K</Text>
-            <Text style={[styles.kpiLabel, { color: '#22c55e' }]}>Saved from cancellations</Text>
+            <Feather name="dollar-sign" size={22} color={Colors.textSecondary} />
+            <Text style={styles.kpiValue}>${(totalAmount / 1000).toFixed(1)}K</Text>
+            <Text style={styles.kpiLabel}>Total spend in view</Text>
           </View>
         </View>
       </View>
 
       <View style={contentStyles.card}>
-        <View style={styles.queueHeader}>
-          <View>
-            <Text style={contentStyles.cardTitle}>Cancellation Queue</Text>
-            <Text style={contentStyles.cardSubtitle}>Unused licenses detected by AI</Text>
-          </View>
-          <View style={styles.queueActions}>
-            <View style={styles.dropdown}>
-              <Text style={styles.dropdownText}>All Status</Text>
-              <Feather name="chevron-down" size={14} color={Colors.textSecondary} />
-            </View>
-            <Pressable style={styles.processBtn}>
-              <Text style={styles.processBtnText}>Process All Ready</Text>
-            </Pressable>
-          </View>
-        </View>
+        <Text style={contentStyles.cardTitle}>Cancellation queue</Text>
+        <Text style={contentStyles.cardSubtitle}>
+          Vendors charged multiple times this period — possible redundant subscriptions
+        </Text>
 
-        {cancellationQueue.map((item, i) => (
-          <View key={i} style={styles.queueItem}>
-            <View style={styles.queueItemHeader}>
-              <View>
-                <Text style={styles.queueVendor}>{item.vendor}</Text>
-                <Text style={styles.queueCategory}>{item.category}</Text>
-              </View>
-              <View style={styles.queueBadges}>
-                <StatusPill label={item.status} variant="active" />
-                <View style={styles.confidenceBadge}>
-                  <Text style={styles.confidenceText}>{item.confidence}% confidence</Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.queueStats}>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>Unused Licenses</Text>
-                <View style={styles.licenseBar}>
-                  <View style={[styles.licenseBarUsed, { width: `${(item.unusedLicenses / item.totalLicenses) * 100}%` }]} />
-                </View>
-                <Text style={styles.statValue}>{item.unusedLicenses} of {item.totalLicenses}</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Monthly Cost</Text>
-                <Text style={styles.statValue}>${item.monthlyCost.toLocaleString()}</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Days Inactive</Text>
-                <Text style={styles.statValue}>{item.daysInactive} days</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Last Activity</Text>
-                <Text style={styles.statValue}>{item.lastActivity}</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Annual Savings</Text>
-                <Text style={[styles.statValue, styles.savings]}>${item.annualSavings.toLocaleString()}</Text>
-              </View>
-            </View>
-            <View style={styles.warningBox}>
-              <Feather name="alert-triangle" size={18} color="#eab308" />
-              <Text style={styles.warningText}>Ready for automated cancellation</Text>
-            </View>
-            <View style={styles.queueItemActions}>
-              <Pressable style={[styles.outlineBtn, { marginRight: 10 }]}>
-                <Feather name="eye" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.outlineBtnText}>Review Users</Text>
-              </Pressable>
-              <Pressable style={styles.outlineBtn}>
-                <Feather name="send" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.outlineBtnText}>Send Cancellation</Text>
-              </Pressable>
-            </View>
+        {cancellationCandidates.length === 0 ? (
+          <View style={styles.emptyQueue}>
+            <Feather name="check-circle" size={32} color={Colors.success} />
+            <Text style={styles.emptyQueueText}>No duplicate or multi-charge vendors in this view.</Text>
+            <Text style={styles.emptyQueueHint}>Upload data with same vendor charged 2+ times to see candidates.</Text>
           </View>
-        ))}
+        ) : (
+          cancellationCandidates.map((item, i) => (
+            <View key={i} style={styles.queueItem}>
+              <View style={styles.queueItemHeader}>
+                <View>
+                  <Text style={styles.queueVendor}>{item.vendor}</Text>
+                  <Text style={styles.queueCategory}>{item.category}</Text>
+                </View>
+                <StatusPill label="Duplicate / multi-charge" variant="priceAlert" />
+              </View>
+              <View style={styles.queueStats}>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Charges this period</Text>
+                  <Text style={styles.statValue}>{item.chargeCount}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Monthly cost</Text>
+                  <Text style={styles.statValue}>${item.monthlyCost.toLocaleString()}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Annual savings if cancelled</Text>
+                  <Text style={[styles.statValue, styles.savings]}>${item.annualSavings.toLocaleString()}</Text>
+                </View>
+              </View>
+              <View style={styles.warningBox}>
+                <Feather name="alert-triangle" size={18} color="#eab308" />
+                <Text style={styles.warningText}>{item.reason}</Text>
+              </View>
+              <View style={styles.queueItemActions}>
+                <Pressable style={styles.outlineBtn}>
+                  <Feather name="send" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.outlineBtnText}>Draft cancellation email</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))
+        )}
       </View>
     </>
   );
@@ -141,43 +151,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
   },
-  queueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  queueActions: {
-    flexDirection: 'row',
+  emptyQueue: {
     alignItems: 'center',
+    padding: 40,
   },
-  dropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.inputBg,
-    marginRight: 12,
+  emptyQueueText: {
+    fontSize: 15,
+    color: Colors.text,
+    marginTop: 16,
   },
-  dropdownText: {
+  emptyQueueHint: {
     fontSize: 13,
     color: Colors.textSecondary,
-    marginRight: 6,
-  },
-  processBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  processBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
+    marginTop: 8,
   },
   queueItem: {
     padding: 20,
@@ -185,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.inputBg,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginBottom: 16,
+    marginTop: 16,
   },
   queueItemHeader: {
     flexDirection: 'row',
@@ -203,27 +189,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  queueBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  confidenceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#22c55e',
-  },
   queueStats: {
     marginBottom: 12,
-  },
-  stat: {
-    marginBottom: 10,
   },
   statRow: {
     flexDirection: 'row',
@@ -240,18 +207,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   savings: { color: '#22c55e' },
-  licenseBar: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.card,
-    marginVertical: 4,
-    overflow: 'hidden',
-  },
-  licenseBarUsed: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: '#ef4444',
-  },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -264,6 +219,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#eab308',
     marginLeft: 8,
+    flex: 1,
   },
   queueItemActions: {
     flexDirection: 'row',

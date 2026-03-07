@@ -7,11 +7,23 @@ import { Typography } from '../constants/typography';
 type Props = {
   userName: string;
   userRole: string;
+  viewingLabel?: string;
+  sidebarOpen?: boolean;
+  onMenuPress?: () => void;
 };
 
-export default function TopBar({ userName, userRole }: Props) {
+export default function TopBar({ userName, userRole, viewingLabel, sidebarOpen = true, onMenuPress }: Props) {
   return (
     <View style={styles.container}>
+      <Pressable style={styles.menuBtn} onPress={onMenuPress} accessibilityLabel={sidebarOpen ? 'Close menu' : 'Open menu'}>
+        <Feather name={sidebarOpen ? 'chevron-left' : 'menu'} size={22} color={Colors.text} />
+      </Pressable>
+      {viewingLabel ? (
+        <View style={styles.viewingChip}>
+          <Feather name="folder" size={14} color={Colors.primary} />
+          <Text style={styles.viewingText}>{viewingLabel}</Text>
+        </View>
+      ) : null}
       <View style={styles.searchContainer}>
         <Feather name="search" size={18} color={Colors.textTertiary} />
         <TextInput
@@ -55,6 +67,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  viewingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.inputBg,
+  },
+  viewingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginLeft: 6,
   },
   searchContainer: {
     flex: 1,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
+import { WorkspaceProvider } from './src/context/WorkspaceContext';
 import LoginScreen from './src/screens/LoginScreen';
 import AppLayout from './src/components/AppLayout';
 import DashboardContent from './src/screens/DashboardContent';
@@ -66,7 +67,7 @@ export default function App() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={Colors.primary} />
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
       </View>
     );
   }
@@ -77,7 +78,7 @@ export default function App() {
     return (
       <>
         <LoginScreen onDemoPress={() => setDemoMode(true)} />
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
       </>
     );
   }
@@ -85,17 +86,22 @@ export default function App() {
   const content = PAGE_CONTENT[activeNav] ?? <DashboardContent />;
 
   return (
-    <View style={styles.root}>
-      <AppLayout
-        activeNav={activeNav}
-        onItemPress={setActiveNav}
-        onLogout={async () => { await supabase?.auth.signOut(); setActiveNav('Dashboard'); }}
-        userEmail={session?.user?.email ?? 'demo@finoptima.com'}
-      >
-        {content}
-      </AppLayout>
-      <StatusBar style="light" />
-    </View>
+    <WorkspaceProvider
+      userId={session?.user?.id ?? null}
+      isDemoMode={demoMode}
+    >
+      <View style={styles.root}>
+        <AppLayout
+          activeNav={activeNav}
+          onItemPress={setActiveNav}
+          onLogout={async () => { await supabase?.auth.signOut(); setActiveNav('Dashboard'); }}
+          userEmail={session?.user?.email ?? 'demo@finoptima.com'}
+        >
+          {content}
+        </AppLayout>
+      </View>
+      <StatusBar style="dark" />
+    </WorkspaceProvider>
   );
 }
 

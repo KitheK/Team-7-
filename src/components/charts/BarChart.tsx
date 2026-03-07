@@ -8,7 +8,7 @@ import Svg, {
   Path,
 } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
-import { Typography } from '../../constants/typography';
+import { Typography, chartFontFamily } from '../../constants/typography';
 
 type Props = {
   width: number;
@@ -68,6 +68,7 @@ export default function BarChart({ width, height, labels, series }: Props) {
                 x={pad.left - 10}
                 y={y + 4}
                 textAnchor="end"
+                fontFamily={chartFontFamily}
                 fontSize={Typography.chart.axisValue}
                 fill={Colors.textTertiary}
               >
@@ -100,6 +101,7 @@ export default function BarChart({ width, height, labels, series }: Props) {
                 x={groupX + groupW / 2}
                 y={pad.top + plotH + 24}
                 textAnchor="middle"
+                fontFamily={chartFontFamily}
                 fontSize={Typography.chart.axisLabel}
                 fill={Colors.textTertiary}
               >

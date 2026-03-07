@@ -1,6 +1,8 @@
 // Single source of truth for fonts across the app and all graphs (demo-consistent).
 
 const fontFamily = 'System'; // React Native default; on web this becomes system UI font
+// Sans-serif stack for SVG chart text so it matches the app (no weird serif fallback).
+export const chartFontFamily = 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
 export const Typography = {
   fontFamily,

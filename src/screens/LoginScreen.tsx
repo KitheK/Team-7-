@@ -64,9 +64,9 @@ export default function LoginScreen({ onDemoPress }: Props) {
               <Text style={styles.logoLetter}>F</Text>
             </View>
           </View>
-          <Text style={styles.brand}>FinOptima</Text>
+          <Text style={styles.brand}>LeanLedger</Text>
           <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+            {isSignUp ? 'Create your account' : 'Sign in — track your spending and find savings'}
           </Text>
 
           {error !== '' && (
@@ -146,7 +146,7 @@ export default function LoginScreen({ onDemoPress }: Props) {
               </View>
               <Pressable style={styles.demoButton} onPress={onDemoPress}>
                 <Feather name="play" size={16} color={Colors.textSecondary} />
-                <Text style={styles.demoButtonText}>View Demo Dashboard</Text>
+                <Text style={styles.demoButtonText}>Try it without signing in</Text>
               </Pressable>
             </>
           )}
