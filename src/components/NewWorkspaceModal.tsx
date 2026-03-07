@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 
@@ -10,26 +10,16 @@ const YEARS = Array.from({ length: 5 }, (_, i) => currentYear + 2 - i);
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onCreate: (month: number, year: number) => Promise<{ workspace: { id: string } } | { error: string }>;
+  onCreate: (month: number, year: number) => void;
 };
 
 export default function NewWorkspaceModal({ visible, onClose, onCreate }: Props) {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(currentYear);
-  const [creating, setCreating] = useState(false);
 
-  const handleCreate = async () => {
-    setCreating(true);
-    try {
-      const result = await onCreate(month, year);
-      if ('error' in result) {
-        Alert.alert('Could not create workspace', result.error);
-        return;
-      }
-      onClose();
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = () => {
+    onCreate(month, year);
+    onClose();
   };
 
   return (
@@ -67,11 +57,11 @@ export default function NewWorkspaceModal({ visible, onClose, onCreate }: Props)
             ))}
           </View>
           <View style={styles.footer}>
-            <Pressable style={styles.cancelBtn} onPress={onClose} disabled={creating}>
+            <Pressable style={styles.cancelBtn} onPress={onClose}>
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
-            <Pressable style={styles.createBtn} onPress={handleCreate} disabled={creating}>
-              {creating ? <ActivityIndicator size="small" color={Colors.primary} /> : <Text style={styles.createText}>Create</Text>}
+            <Pressable style={styles.createBtn} onPress={handleCreate}>
+              <Text style={styles.createText}>Create</Text>
             </Pressable>
           </View>
         </Pressable>
