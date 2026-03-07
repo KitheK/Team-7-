@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID } from '../context/WorkspaceContext';
 import NewWorkspaceModal from './NewWorkspaceModal';
+
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 type NavItem = {
   label: string;
@@ -46,15 +48,15 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
     return (
       <Pressable
         key={item.key}
-        style={[styles.navItem, isActive && styles.navItemActive]}
+        style={[styles.navItem, isNative && styles.navItemNative, isActive && styles.navItemActive]}
         onPress={() => onItemPress?.(item.key)}
       >
         <Feather
           name={item.icon}
-          size={20}
+          size={isNative ? 22 : 20}
           color={isActive ? Colors.sidebarActive : Colors.sidebarText}
         />
-        <Text style={[styles.navLabel, isActive && styles.navLabelActive]} numberOfLines={1}>
+        <Text style={[styles.navLabel, isNative && styles.navLabelNative, isActive && styles.navLabelActive]} numberOfLines={1}>
           {item.label}
         </Text>
       </Pressable>
@@ -62,8 +64,8 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoSection}>
+    <View style={[styles.container, isNative && styles.containerNative]}>
+      <View style={[styles.logoSection, isNative && styles.logoSectionNative]}>
         <View style={styles.logoIcon}>
           <Text style={styles.logoLetter}>L</Text>
         </View>
@@ -73,7 +75,7 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
         </View>
       </View>
 
-      <View style={styles.workspaceSection}>
+      <View style={[styles.workspaceSection, isNative && styles.workspaceSectionNative]}>
         <Text style={styles.workspaceSectionTitle}>Your months</Text>
         <ScrollView style={styles.workspaceList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <Pressable
@@ -138,17 +140,17 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
         {mainNav.map(renderItem)}
       </ScrollView>
 
-      <View style={styles.bottomNav}>
+      <View style={[styles.bottomNav, isNative && styles.bottomNavNative]}>
         {bottomNav.map(renderItem)}
         {onClose && (
-          <Pressable style={styles.navItem} onPress={onClose}>
-            <Feather name="chevron-left" size={20} color={Colors.sidebarText} />
-            <Text style={styles.navLabel}>Hide menu</Text>
+          <Pressable style={[styles.navItem, isNative && styles.navItemNative]} onPress={onClose}>
+            <Feather name="x" size={isNative ? 22 : 20} color={Colors.sidebarText} />
+            <Text style={[styles.navLabel, isNative && styles.navLabelNative]}>Close menu</Text>
           </Pressable>
         )}
-        <Pressable style={styles.navItem} onPress={onLogout}>
-          <Feather name="log-out" size={20} color={Colors.sidebarText} />
-          <Text style={styles.navLabel}>Log Out</Text>
+        <Pressable style={[styles.navItem, isNative && styles.navItemNative]} onPress={onLogout}>
+          <Feather name="log-out" size={isNative ? 22 : 20} color={Colors.sidebarText} />
+          <Text style={[styles.navLabel, isNative && styles.navLabelNative]}>Log Out</Text>
         </Pressable>
       </View>
 
@@ -163,13 +165,28 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
 
 const styles = StyleSheet.create({
   container: {
-    width: 200,
+    width: '100%',
+    minWidth: 200,
     flex: 1,
     backgroundColor: Colors.sidebar,
     paddingVertical: 20,
     paddingHorizontal: 12,
     borderRightWidth: 1,
     borderRightColor: Colors.border,
+  },
+  containerNative: {
+    paddingTop: 8,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    borderRightWidth: 0,
+  },
+  logoSectionNative: {
+    marginBottom: 20,
+    paddingTop: 4,
+  },
+  workspaceSectionNative: {
+    marginBottom: 20,
+    paddingBottom: 16,
   },
   rangeFilter: {
     flexDirection: 'row',
@@ -296,6 +313,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     flexShrink: 0,
   },
+  bottomNavNative: {
+    paddingTop: 20,
+  },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -303,6 +323,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
     marginBottom: 2,
+  },
+  navItemNative: {
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
   },
   navItemActive: {
     backgroundColor: Colors.sidebarActiveBg,
@@ -313,6 +339,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontWeight: '500',
     flex: 1,
+  },
+  navLabelNative: {
+    fontSize: 16,
+    marginLeft: 14,
   },
   navLabelActive: {
     color: Colors.sidebarActive,

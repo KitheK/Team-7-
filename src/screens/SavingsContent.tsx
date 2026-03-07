@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Colors } from '../constants/colors';
 import { contentStyles } from '../constants/contentStyles';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID } from '../context/WorkspaceContext';
+
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export default function SavingsContent() {
   const { activeWorkspace, activeWorkspaceId, workspaces, activeWorkspaceTransactions } = useWorkspace();
@@ -14,7 +15,7 @@ export default function SavingsContent() {
     <>
       <Text style={contentStyles.pageTitle}>Your savings</Text>
       <Text style={contentStyles.pageSubtitle}>
-        {isOverview ? 'All the spending we found across every month you added.' : 'Spending we found for this month.'}
+        {isOverview ? 'All spending across every month you added.' : 'Spending for this month.'}
       </Text>
 
       <View style={contentStyles.card}>
@@ -22,7 +23,7 @@ export default function SavingsContent() {
           {isOverview ? 'Total in view' : activeWorkspace ? workspaceLabel(activeWorkspace) : 'Total'}
         </Text>
         <Text style={contentStyles.cardSubtitle}>
-          {isOverview ? 'Everything from the statements you added' : 'From the statement(s) you added for this month'}
+          {isOverview ? 'From all your statements' : 'From this month\'s statement(s)'}
         </Text>
         <View style={styles.totalWrap}>
           <Text style={styles.bigNumber}>${viewTotal.toLocaleString()}</Text>
@@ -33,7 +34,7 @@ export default function SavingsContent() {
       {isOverview && workspaces.length > 0 && (
         <View style={contentStyles.card}>
           <Text style={contentStyles.cardTitle}>By month</Text>
-          <Text style={contentStyles.cardSubtitle}>What we found in each month you added</Text>
+          <Text style={contentStyles.cardSubtitle}>What we found in each month</Text>
           <View style={styles.workspaceList}>
             {workspaces.map((w) => (
               <View key={w.id} style={styles.workspaceRow}>
@@ -49,36 +50,18 @@ export default function SavingsContent() {
 }
 
 const styles = StyleSheet.create({
-  totalWrap: {
-    paddingVertical: 16,
-  },
-  bigNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: Colors.success,
-  },
-  hint: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 8,
-  },
+  totalWrap: { paddingVertical: 16 },
+  bigNumber: { fontSize: isNative ? 28 : 32, fontWeight: '700', color: Colors.success },
+  hint: { fontSize: 13, color: Colors.textSecondary, marginTop: 8 },
   workspaceList: {},
   workspaceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: isNative ? StyleSheet.hairlineWidth : 1,
     borderBottomColor: Colors.border,
   },
-  workspaceName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  workspaceAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.success,
-  },
+  workspaceName: { fontSize: 14, fontWeight: '500', color: Colors.text },
+  workspaceAmount: { fontSize: 14, fontWeight: '600', color: Colors.success },
 });

@@ -11,6 +11,7 @@ type Segment = {
 };
 
 const MAX_VISIBLE = 8;
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 type Props = {
   width: number;
@@ -29,8 +30,8 @@ export default function DonutChart({ width, height, data }: Props) {
   const restValue = rest.reduce((s, d) => s + d.value, 0);
   const displayData = restValue > 0 ? [...visible, { name: 'Other', value: restValue, color: Colors.textTertiary }] : visible;
 
-  const radius = 70;
-  const strokeWidth = 28;
+  const radius = isNative ? 60 : 70;
+  const strokeWidth = isNative ? 24 : 28;
   const cx = radius + strokeWidth / 2 + 10;
   const cy = radius + strokeWidth / 2 + 10;
   const circumference = 2 * Math.PI * radius;
@@ -44,47 +45,89 @@ export default function DonutChart({ width, height, data }: Props) {
     return { ...d, arcLen, offset };
   });
 
+  const centerLabel = `$${(total / 1000).toFixed(1)}k`;
+
+  if (isNative) {
+    return (
+      <View style={styles.containerNative}>
+        <View style={styles.chartWrapNative}>
+          <Svg width={svgSize} height={svgSize}>
+            <Circle cx={cx} cy={cy} r={radius} fill="none" stroke={Colors.border} strokeWidth={strokeWidth} />
+            {segments.map((seg, i) => (
+              <Circle
+                key={i}
+                cx={cx} cy={cy} r={radius}
+                fill="none" stroke={seg.color} strokeWidth={strokeWidth}
+                strokeDasharray={`${seg.arcLen} ${circumference - seg.arcLen}`}
+                strokeDashoffset={-seg.offset + circumference * 0.25}
+                strokeLinecap="butt"
+              />
+            ))}
+            <SvgText
+              x={cx} y={cy - 6}
+              textAnchor="middle"
+              fontFamily={chartFontFamily}
+              fontSize={Typography.chart.centerPrimary}
+              fontWeight="700"
+              fill={Colors.text}
+            >
+              {centerLabel}
+            </SvgText>
+            <SvgText
+              x={cx} y={cy + 14}
+              textAnchor="middle"
+              fontFamily={chartFontFamily}
+              fontSize={Typography.chart.centerSecondary}
+              fill={Colors.textSecondary}
+            >
+              Total
+            </SvgText>
+          </Svg>
+        </View>
+        <View style={styles.legendNative}>
+          {displayData.map((d) => {
+            const pct = ((d.value / total) * 100).toFixed(1);
+            return (
+              <View key={d.name} style={styles.legendRowNative}>
+                <View style={[styles.legendDot, { backgroundColor: d.color }]} />
+                <Text style={styles.legendLabelNative} numberOfLines={1}>{d.name}</Text>
+                <Text style={styles.legendValueNative}>{pct}%</Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
+
   const legendWidth = width - svgSize - 20;
 
   return (
     <View style={styles.container}>
       <Svg width={svgSize} height={svgSize}>
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={radius}
-          fill="none"
-          stroke={Colors.border}
-          strokeWidth={strokeWidth}
-        />
+        <Circle cx={cx} cy={cy} r={radius} fill="none" stroke={Colors.border} strokeWidth={strokeWidth} />
         {segments.map((seg, i) => (
           <Circle
             key={i}
-            cx={cx}
-            cy={cy}
-            r={radius}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={strokeWidth}
+            cx={cx} cy={cy} r={radius}
+            fill="none" stroke={seg.color} strokeWidth={strokeWidth}
             strokeDasharray={`${seg.arcLen} ${circumference - seg.arcLen}`}
             strokeDashoffset={-seg.offset + circumference * 0.25}
             strokeLinecap="butt"
           />
         ))}
         <SvgText
-          x={cx}
-          y={cy - 8}
+          x={cx} y={cy - 8}
           textAnchor="middle"
           fontFamily={chartFontFamily}
           fontSize={Typography.chart.centerPrimary}
           fontWeight="700"
           fill={Colors.text}
         >
-          ${(total / 1000).toFixed(1)}k
+          {centerLabel}
         </SvgText>
         <SvgText
-          x={cx}
-          y={cy + 14}
+          x={cx} y={cy + 14}
           textAnchor="middle"
           fontFamily={chartFontFamily}
           fontSize={Typography.chart.centerSecondary}
@@ -131,6 +174,37 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  containerNative: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  chartWrapNative: {
+    marginBottom: 16,
+  },
+  legendNative: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  legendRowNative: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '48%',
+    marginBottom: 10,
+  },
+  legendLabelNative: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    flex: 1,
+    marginRight: 4,
+  },
+  legendValueNative: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
   },
   legend: {
     flex: 1,

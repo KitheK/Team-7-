@@ -52,13 +52,15 @@ export default function LoginScreen({ onDemoPress }: Props) {
     setLoading(false);
   };
 
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
   return (
     <KeyboardAvoidingView
       style={styles.wrapper}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <View style={styles.card}>
+        <View style={[styles.card, isNative && styles.cardNative]}>
           <View style={styles.logoRow}>
             <View style={styles.logoIcon}>
               <Text style={styles.logoLetter}>F</Text>
@@ -173,6 +175,10 @@ const styles = StyleSheet.create({
     padding: 40,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
+  },
+  cardNative: {
+    padding: 24,
+    borderRadius: 16,
   },
   logoRow: {
     alignItems: 'center',

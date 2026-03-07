@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
@@ -10,9 +10,34 @@ type Props = {
   viewingLabel?: string;
   sidebarOpen?: boolean;
   onMenuPress?: () => void;
+  isNative?: boolean;
 };
 
-export default function TopBar({ userName, userRole, viewingLabel, sidebarOpen = true, onMenuPress }: Props) {
+export default function TopBar({ userName, userRole, viewingLabel, sidebarOpen = true, onMenuPress, isNative }: Props) {
+  if (isNative) {
+    return (
+      <View style={nativeStyles.bar}>
+        <Pressable
+          style={nativeStyles.menuBtn}
+          onPress={onMenuPress}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Open menu"
+        >
+          <Feather name="menu" size={24} color={Colors.text} />
+        </Pressable>
+        <View style={nativeStyles.center}>
+          <Text style={nativeStyles.title} numberOfLines={1}>
+            {viewingLabel ?? 'LeanLedger'}
+          </Text>
+        </View>
+        <Pressable style={nativeStyles.avatarBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Feather name="user" size={20} color={Colors.textSecondary} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Web layout (unchanged)
   return (
     <View style={styles.container}>
       <Pressable style={styles.menuBtn} onPress={onMenuPress} accessibilityLabel={sidebarOpen ? 'Close menu' : 'Open menu'}>
@@ -57,6 +82,44 @@ export default function TopBar({ userName, userRole, viewingLabel, sidebarOpen =
     </View>
   );
 }
+
+const nativeStyles = StyleSheet.create({
+  bar: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: Colors.background,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  menuBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  avatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.inputBg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 const styles = StyleSheet.create({
   container: {

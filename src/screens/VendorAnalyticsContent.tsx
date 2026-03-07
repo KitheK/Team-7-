@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
+import { View, Text, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
 import { Colors } from '../constants/colors';
 import { contentStyles } from '../constants/contentStyles';
 import KPICard from '../components/KPICard';
@@ -7,6 +7,8 @@ import DonutChart from '../components/charts/DonutChart';
 import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
+
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export default function VendorAnalyticsContent() {
   const [chartW, setChartW] = useState(0);
@@ -22,10 +24,10 @@ export default function VendorAnalyticsContent() {
   if (isEmpty) {
     return (
       <>
-      <Text style={contentStyles.pageTitle}>Who you pay</Text>
-      <Text style={contentStyles.pageSubtitle}>
-        A list of every company you paid and how much. Add a statement to see it here.
-      </Text>
+        <Text style={contentStyles.pageTitle}>Who you pay</Text>
+        <Text style={contentStyles.pageSubtitle}>
+          Every company you paid. Add a statement to see it here.
+        </Text>
         <WorkspaceEmptyState activeWorkspaceId={activeWorkspaceId} />
       </>
     );
@@ -33,45 +35,17 @@ export default function VendorAnalyticsContent() {
 
   const topVendor = vendorAnalytics[0];
   const kpis = [
-    {
-      title: 'Vendors',
-      value: String(subscriptionCount),
-      change: 'In this view',
-      positive: true,
-      icon: 'layers' as const,
-      color: '#22c55e',
-    },
-    {
-      title: 'Total spend',
-      value: `$${(totalAmount / 1000).toFixed(1)}K`,
-      change: 'In this view',
-      positive: true,
-      icon: 'dollar-sign' as const,
-      color: '#3b82f6',
-    },
-    {
-      title: 'Top vendor',
-      value: topVendor?.vendor ?? '—',
-      change: topVendor ? `$${topVendor.total.toLocaleString()}` : '—',
-      positive: true,
-      icon: 'trending-up' as const,
-      color: '#f59e0b',
-    },
-    {
-      title: 'Transactions',
-      value: String(activeWorkspaceTransactions.length),
-      change: 'Total rows',
-      positive: true,
-      icon: 'file-text' as const,
-      color: '#a855f7',
-    },
+    { title: 'Vendors', value: String(subscriptionCount), change: 'In this view', positive: true, icon: 'layers' as const, color: '#22c55e' },
+    { title: 'Total spend', value: `$${(totalAmount / 1000).toFixed(1)}K`, change: 'In this view', positive: true, icon: 'dollar-sign' as const, color: '#3b82f6' },
+    { title: 'Top vendor', value: topVendor?.vendor ?? '—', change: topVendor ? `$${topVendor.total.toLocaleString()}` : '—', positive: true, icon: 'trending-up' as const, color: '#f59e0b' },
+    { title: 'Transactions', value: String(activeWorkspaceTransactions.length), change: 'Total rows', positive: true, icon: 'file-text' as const, color: '#a855f7' },
   ];
 
   return (
     <>
       <Text style={contentStyles.pageTitle}>Who you pay</Text>
       <Text style={contentStyles.pageSubtitle}>
-        Every company you paid and how much — so you can spot the big ones.
+        Every company you paid — spot the big ones.
       </Text>
 
       <View style={contentStyles.kpiRow}>
@@ -84,14 +58,14 @@ export default function VendorAnalyticsContent() {
 
       {byVendorChart.length > 0 && (
         <View
-          style={[contentStyles.card, { marginTop: 24 }]}
+          style={[contentStyles.card, { marginTop: isNative ? 0 : 24 }]}
           onLayout={(e: LayoutChangeEvent) => setChartW(e.nativeEvent.layout.width)}
         >
           <Text style={styles.chartTitle}>Spend by vendor</Text>
           <Text style={styles.chartSubtitle}>Top vendors in this view</Text>
           {chartW > 0 && (
             <View style={contentStyles.donutContainer}>
-              <DonutChart width={chartW - 48} height={240} data={byVendorChart.slice(0, 8)} />
+              <DonutChart width={chartW - (isNative ? 32 : 48)} height={isNative ? 200 : 240} data={byVendorChart.slice(0, 8)} />
             </View>
           )}
         </View>
@@ -100,56 +74,63 @@ export default function VendorAnalyticsContent() {
       <View style={contentStyles.card}>
         <Text style={contentStyles.cardTitle}>Vendor breakdown</Text>
         <Text style={contentStyles.cardSubtitle}>Total, count, and average per vendor</Text>
-        <View style={styles.table}>
-          <View style={styles.tableRowHeader}>
-            <Text style={[styles.cell, styles.colVendor]}>Vendor</Text>
-            <Text style={[styles.cell, styles.colCat]}>Category</Text>
-            <Text style={[styles.cell, styles.colTotal]}>Total</Text>
-            <Text style={[styles.cell, styles.colCount]}>Count</Text>
-            <Text style={[styles.cell, styles.colAvg]}>Avg</Text>
-          </View>
-          {vendorAnalytics.map((row, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={[styles.cell, styles.colVendor, styles.vendorName]} numberOfLines={1}>{row.vendor}</Text>
-              <Text style={[styles.cell, styles.colCat]}>{row.category}</Text>
-              <Text style={[styles.cell, styles.colTotal]}>${row.total.toLocaleString()}</Text>
-              <Text style={[styles.cell, styles.colCount]}>{row.count}</Text>
-              <Text style={[styles.cell, styles.colAvg]}>${row.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+
+        {isNative ? (
+          vendorAnalytics.map((row, i) => (
+            <View key={i} style={styles.vendorCard}>
+              <View style={styles.vendorCardTop}>
+                <Text style={styles.vendorCardName} numberOfLines={1}>{row.vendor}</Text>
+                <Text style={styles.vendorCardTotal}>${row.total.toLocaleString()}</Text>
+              </View>
+              <Text style={styles.vendorCardMeta}>
+                {row.category} · {row.count} charge{row.count > 1 ? 's' : ''} · avg ${row.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </Text>
             </View>
-          ))}
-        </View>
+          ))
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableRowHeader}>
+              <Text style={[styles.cell, styles.colVendor]}>Vendor</Text>
+              <Text style={[styles.cell, styles.colCat]}>Category</Text>
+              <Text style={[styles.cell, styles.colTotal]}>Total</Text>
+              <Text style={[styles.cell, styles.colCount]}>Count</Text>
+              <Text style={[styles.cell, styles.colAvg]}>Avg</Text>
+            </View>
+            {vendorAnalytics.map((row, i) => (
+              <View key={i} style={styles.tableRow}>
+                <Text style={[styles.cell, styles.colVendor, styles.vendorName]} numberOfLines={1}>{row.vendor}</Text>
+                <Text style={[styles.cell, styles.colCat]}>{row.category}</Text>
+                <Text style={[styles.cell, styles.colTotal]}>${row.total.toLocaleString()}</Text>
+                <Text style={[styles.cell, styles.colCount]}>{row.count}</Text>
+                <Text style={[styles.cell, styles.colAvg]}>${row.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  chartSubtitle: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 16,
-  },
-  table: { marginTop: 16 },
-  tableRowHeader: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+  chartTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 4 },
+  chartSubtitle: { fontSize: 13, color: Colors.textSecondary, marginBottom: 16 },
+  vendorCard: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
-    marginBottom: 4,
   },
-  tableRow: {
+  vendorCardTop: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
+  vendorCardName: { fontSize: 15, fontWeight: '600', color: Colors.text, flex: 1, marginRight: 12 },
+  vendorCardTotal: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  vendorCardMeta: { fontSize: 12, color: Colors.textTertiary, marginTop: 4 },
+  table: { marginTop: 16 },
+  tableRowHeader: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: 4 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
   cell: { fontSize: 13, color: Colors.textSecondary },
   colVendor: { flex: 1.4, minWidth: 100 },
   colCat: { flex: 1, minWidth: 80 },

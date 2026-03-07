@@ -2,9 +2,11 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { WorkspaceProvider } from './src/context/WorkspaceContext';
+import { LayoutProvider } from './src/context/LayoutContext';
 import LoginScreen from './src/screens/LoginScreen';
 import AppLayout from './src/components/AppLayout';
 import DashboardContent from './src/screens/DashboardContent';
@@ -76,22 +78,24 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <>
+      <SafeAreaProvider>
         <LoginScreen onDemoPress={() => setDemoMode(true)} />
         <StatusBar style="dark" />
-      </>
+      </SafeAreaProvider>
     );
   }
 
   const content = PAGE_CONTENT[activeNav] ?? <DashboardContent />;
 
   return (
+    <SafeAreaProvider>
     <WorkspaceProvider
       userId={session?.user?.id ?? null}
       isDemoMode={demoMode}
     >
-      <View style={styles.root}>
-        <AppLayout
+      <LayoutProvider>
+        <View style={styles.root}>
+          <AppLayout
           activeNav={activeNav}
           onItemPress={setActiveNav}
           onLogout={async () => { await supabase?.auth.signOut(); setActiveNav('Dashboard'); }}
@@ -99,9 +103,11 @@ export default function App() {
         >
           {content}
         </AppLayout>
-      </View>
+        </View>
+      </LayoutProvider>
       <StatusBar style="dark" />
     </WorkspaceProvider>
+    </SafeAreaProvider>
   );
 }
 

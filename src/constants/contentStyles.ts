@@ -1,28 +1,37 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { Colors } from './colors';
 import { Typography } from './typography';
 
-// Shared layout for all app pages – typography from single source
+const n = Platform.OS === 'ios' || Platform.OS === 'android';
+
 export const contentStyles = StyleSheet.create({
   pageTitle: {
-    fontSize: Typography.pageTitle.fontSize,
+    fontSize: n ? 22 : Typography.pageTitle.fontSize,
     fontWeight: Typography.pageTitle.fontWeight,
     color: Colors.text,
-    marginBottom: 4,
+    marginBottom: n ? 6 : 4,
   },
   pageSubtitle: {
     fontSize: Typography.pageSubtitle.fontSize,
     fontWeight: Typography.pageSubtitle.fontWeight,
     color: Colors.textSecondary,
-    marginBottom: 24,
+    marginBottom: n ? 16 : 24,
+  },
+  pageSubtitleMobile: {
+    marginBottom: 16,
   },
   card: {
     backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: n ? 14 : 16,
+    padding: n ? 16 : 24,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    marginBottom: 24,
+    marginBottom: n ? 16 : 24,
+  },
+  cardMobile: {
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 12,
   },
   cardTitle: {
     fontSize: Typography.cardTitle.fontSize,
@@ -34,33 +43,52 @@ export const contentStyles = StyleSheet.create({
     fontSize: Typography.cardSubtitle.fontSize,
     fontWeight: Typography.cardSubtitle.fontWeight,
     color: Colors.textSecondary,
-    marginBottom: 16,
+    marginBottom: n ? 12 : 16,
   },
   kpiRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
+    flexDirection: n ? 'column' : 'row',
+    gap: n ? 10 : undefined,
+    marginBottom: n ? 16 : 24,
+  },
+  kpiRowMobile: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 20,
   },
   kpiItem: {
-    flex: 1,
-    marginLeft: 16,
+    flex: n ? 0 : 1,
+    marginLeft: n ? 0 : 16,
+  },
+  kpiItemMobile: {
+    marginLeft: 0,
+    flex: 0,
   },
   kpiItemFirst: {
     marginLeft: 0,
   },
   chartsRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
+    flexDirection: n ? 'column' : 'row',
+    gap: n ? 16 : undefined,
+    marginBottom: n ? 16 : 24,
+  },
+  chartsRowMobile: {
+    flexDirection: 'column',
+    gap: 16,
+    marginBottom: 20,
   },
   chartCard: {
-    flex: 1,
+    flex: n ? 0 : 1,
     backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: n ? 14 : 16,
+    padding: n ? 16 : 24,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
   chartCardSecond: {
-    marginLeft: 20,
+    marginLeft: n ? 0 : 20,
+  },
+  chartCardSecondMobile: {
+    marginLeft: 0,
   },
   donutContainer: {
     alignItems: 'center',
@@ -68,7 +96,7 @@ export const contentStyles = StyleSheet.create({
     paddingVertical: 10,
   },
   emptyState: {
-    padding: 48,
+    padding: n ? 32 : 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

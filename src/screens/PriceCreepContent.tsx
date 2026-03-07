@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
+import { View, Text, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { contentStyles } from '../constants/contentStyles';
 import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
+
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export default function PriceCreepContent() {
   const [tableW, setTableW] = useState(0);
@@ -15,10 +17,10 @@ export default function PriceCreepContent() {
   if (isEmpty) {
     return (
       <>
-      <Text style={contentStyles.pageTitle}>Unexpected price increases</Text>
-      <Text style={contentStyles.pageSubtitle}>
-        We flag when the same company charged you more than once or raised the amount. Add a statement to see results.
-      </Text>
+        <Text style={contentStyles.pageTitle}>Unexpected price increases</Text>
+        <Text style={contentStyles.pageSubtitle}>
+          We flag duplicate or increased charges. Add a statement to see results.
+        </Text>
         <WorkspaceEmptyState activeWorkspaceId={activeWorkspaceId} />
       </>
     );
@@ -28,7 +30,7 @@ export default function PriceCreepContent() {
     <>
       <Text style={contentStyles.pageTitle}>Unexpected price increases</Text>
       <Text style={contentStyles.pageSubtitle}>
-        Same company charged you more than once, or the amount went up — worth a second look.
+        Same company charged more than once, or amount went up.
       </Text>
 
       <View style={contentStyles.kpiRow}>
@@ -36,7 +38,7 @@ export default function PriceCreepContent() {
           <View style={styles.kpiCard}>
             <Feather name="trending-up" size={22} color={Colors.warning} />
             <Text style={styles.kpiValue}>{priceCreepSignals.length}</Text>
-            <Text style={styles.kpiLabel}>Vendors with duplicate or variance</Text>
+            <Text style={styles.kpiLabel}>Signals detected</Text>
           </View>
         </View>
         <View style={contentStyles.kpiItem}>
@@ -52,15 +54,28 @@ export default function PriceCreepContent() {
         style={contentStyles.card}
         onLayout={(e: LayoutChangeEvent) => setTableW(e.nativeEvent.layout.width)}
       >
-        <Text style={contentStyles.cardTitle}>Detected price / duplicate signals</Text>
+        <Text style={contentStyles.cardTitle}>Detected signals</Text>
         <Text style={contentStyles.cardSubtitle}>
-          Same vendor charged multiple times or amount variance &gt;5% in this period
+          Same vendor charged multiple times or amount variance
         </Text>
         {priceCreepSignals.length === 0 ? (
           <View style={styles.emptyInline}>
             <Feather name="check-circle" size={24} color={Colors.success} />
-            <Text style={styles.emptyInlineText}>No duplicate or variance signals in this view.</Text>
+            <Text style={styles.emptyInlineText}>No signals in this view.</Text>
           </View>
+        ) : isNative ? (
+          priceCreepSignals.map((row, i) => (
+            <View key={i} style={styles.signalCard}>
+              <View style={styles.signalTop}>
+                <Text style={styles.signalVendor} numberOfLines={1}>{row.vendor}</Text>
+                <Text style={styles.signalTotal}>${row.totalAmount.toLocaleString()}</Text>
+              </View>
+              <View style={styles.signalBottom}>
+                <Text style={styles.signalCharges}>{row.count} charge{row.count > 1 ? 's' : ''}</Text>
+                <Text style={styles.signalMessage} numberOfLines={2}>{row.message}</Text>
+              </View>
+            </View>
+          ))
         ) : (
           <View style={styles.table}>
             <View style={styles.tableRowHeader}>
@@ -86,14 +101,14 @@ export default function PriceCreepContent() {
 
 const styles = StyleSheet.create({
   kpiCard: {
-    padding: 20,
-    borderRadius: 16,
+    padding: isNative ? 16 : 20,
+    borderRadius: isNative ? 12 : 16,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     backgroundColor: Colors.card,
   },
   kpiValue: {
-    fontSize: 26,
+    fontSize: isNative ? 24 : 26,
     fontWeight: '700',
     color: Colors.text,
     marginTop: 10,
@@ -113,6 +128,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginLeft: 12,
+  },
+  signalCard: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  signalTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  signalVendor: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+    flex: 1,
+    marginRight: 12,
+  },
+  signalTotal: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  signalBottom: {
+    marginTop: 6,
+  },
+  signalCharges: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  signalMessage: {
+    fontSize: 13,
+    color: Colors.warning,
+    marginTop: 4,
   },
   table: { marginTop: 16 },
   tableRowHeader: {

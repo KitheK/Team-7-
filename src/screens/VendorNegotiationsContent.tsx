@@ -9,8 +9,10 @@ import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
 
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
 function draftNegotiationEmail(vendor: string, currentCost: number, targetCost: number, strategy: string): string {
-  const body = `Subject: Contract renewal discussion – ${vendor}
+  return `Subject: Contract renewal discussion – ${vendor}
 
 Hi,
 
@@ -24,7 +26,6 @@ Our approach: ${strategy}
 Please let us know a convenient time for a call.
 
 Best regards`;
-  return body;
 }
 
 export default function VendorNegotiationsContent() {
@@ -77,10 +78,10 @@ export default function VendorNegotiationsContent() {
   if (isEmpty) {
     return (
       <>
-      <Text style={contentStyles.pageTitle}>Negotiate & save</Text>
-      <Text style={contentStyles.pageSubtitle}>
-        Companies where you might save by asking for a better rate or cancelling a duplicate. Add a statement to see suggestions.
-      </Text>
+        <Text style={contentStyles.pageTitle}>Negotiate & save</Text>
+        <Text style={contentStyles.pageSubtitle}>
+          Save by negotiating or cancelling duplicates. Add a statement to see suggestions.
+        </Text>
         <WorkspaceEmptyState activeWorkspaceId={activeWorkspaceId} />
       </>
     );
@@ -90,7 +91,7 @@ export default function VendorNegotiationsContent() {
     <>
       <Text style={contentStyles.pageTitle}>Negotiate & save</Text>
       <Text style={contentStyles.pageSubtitle}>
-        We highlight where you might save — by renegotiating or cancelling a duplicate charge.
+        Renegotiate or cancel duplicate charges to save.
       </Text>
 
       <View style={contentStyles.kpiRow}>
@@ -98,7 +99,7 @@ export default function VendorNegotiationsContent() {
           <View style={styles.kpiCard}>
             <Feather name="phone-call" size={22} color="#3b82f6" />
             <Text style={styles.kpiValue}>{negotiationCandidates.length}</Text>
-            <Text style={styles.kpiLabel}>Negotiation candidates</Text>
+            <Text style={styles.kpiLabel}>Candidates</Text>
           </View>
         </View>
         <View style={contentStyles.kpiItem}>
@@ -114,64 +115,66 @@ export default function VendorNegotiationsContent() {
           <View style={styles.kpiCard}>
             <Feather name="trending-up" size={22} color="#14b8a6" />
             <Text style={styles.kpiValue}>${(totalAmount / 1000).toFixed(1)}K</Text>
-            <Text style={styles.kpiLabel}>Total spend in view</Text>
+            <Text style={styles.kpiLabel}>Total spend</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={contentStyles.cardTitle}>Negotiation pipeline</Text>
-          <Text style={contentStyles.cardSubtitle}>High-spend and duplicate-charge vendors — schedule AI call or draft email</Text>
+      {!isNative && (
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={contentStyles.cardTitle}>Negotiation pipeline</Text>
+            <Text style={contentStyles.cardSubtitle}>High-spend and duplicate-charge vendors — schedule AI call or draft email</Text>
+          </View>
+          <Pressable style={styles.primaryBtn} onPress={() => handleScheduleAICall()}>
+            <Feather name="phone-call" size={16} color={Colors.primary} />
+            <Text style={styles.primaryBtnText}>Schedule AI call</Text>
+          </Pressable>
         </View>
-        <Pressable style={styles.primaryBtn} onPress={() => handleScheduleAICall()}>
-          <Feather name="phone-call" size={16} color={Colors.primary} />
-          <Text style={styles.primaryBtnText}>Schedule AI call</Text>
-        </Pressable>
-      </View>
+      )}
 
       {negotiationCandidates.length === 0 ? (
         <View style={contentStyles.card}>
-          <Text style={styles.noCandidates}>No high-spend or duplicate vendors in this view. Upload more data or switch workspace.</Text>
+          <Text style={styles.noCandidates}>No high-spend or duplicate vendors in this view.</Text>
         </View>
       ) : (
         negotiationCandidates.map((n, i) => (
           <View key={i} style={contentStyles.card}>
             <View style={styles.negHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.negVendor}>{n.vendor}</Text>
                 <Text style={styles.negCategory}>{n.category}</Text>
               </View>
               <StatusPill
-                label={n.isFromCreep ? 'Duplicate / variance' : 'High spend'}
+                label={n.isFromCreep ? 'Duplicate' : 'High spend'}
                 variant={n.isFromCreep ? 'priceAlert' : 'inProgress'}
               />
             </View>
-            <View style={styles.negGrid}>
-              <View style={styles.negGridItem}>
-                <Text style={styles.negLabel}>Current cost</Text>
+            <View style={[styles.negGrid, isNative && styles.negGridNative]}>
+              <View style={[styles.negGridItem, isNative && styles.negGridItemNative]}>
+                <Text style={styles.negLabel}>Current</Text>
                 <Text style={styles.negNum}>${n.currentCost.toLocaleString()}</Text>
               </View>
-              <View style={styles.negGridItem}>
-                <Text style={styles.negLabel}>Target cost</Text>
+              <View style={[styles.negGridItem, isNative && styles.negGridItemNative]}>
+                <Text style={styles.negLabel}>Target</Text>
                 <Text style={[styles.negNum, { color: '#22c55e' }]}>${n.targetCost.toLocaleString()}</Text>
               </View>
-              <View style={styles.negGridItem}>
-                <Text style={styles.negLabel}>Potential savings</Text>
+              <View style={[styles.negGridItem, isNative && styles.negGridItemNative]}>
+                <Text style={styles.negLabel}>Savings</Text>
                 <Text style={[styles.negNum, styles.savings]}>${n.potentialSavings.toLocaleString()}/mo</Text>
               </View>
             </View>
             <View style={styles.stageBox}>
-              <Text style={styles.stageStrategy}>Strategy: {n.strategy}</Text>
+              <Text style={styles.stageStrategy}>{n.strategy}</Text>
             </View>
-            <View style={styles.negActions}>
-              <Pressable style={styles.outlineBtn} onPress={() => handleDraftEmail(n.vendor, n.currentCost, n.targetCost, n.strategy)}>
+            <View style={[styles.negActions, isNative && styles.negActionsNative]}>
+              <Pressable style={[styles.outlineBtn, isNative && styles.outlineBtnNative]} onPress={() => handleDraftEmail(n.vendor, n.currentCost, n.targetCost, n.strategy)}>
                 <Feather name="mail" size={14} color={Colors.primary} />
                 <Text style={styles.outlineBtnText}>Draft email</Text>
               </Pressable>
-              <Pressable style={[styles.outlineBtn, styles.primaryOutlineBtn]} onPress={() => handleScheduleAICall(n.vendor)}>
+              <Pressable style={[styles.outlineBtn, styles.primaryOutlineBtn, isNative && styles.outlineBtnNative]} onPress={() => handleScheduleAICall(n.vendor)}>
                 <Feather name="phone-call" size={14} color={Colors.primary} />
-                <Text style={styles.outlineBtnText}>Schedule AI call</Text>
+                <Text style={styles.outlineBtnText}>AI call</Text>
               </Pressable>
             </View>
           </View>
@@ -189,114 +192,34 @@ export default function VendorNegotiationsContent() {
 
 const styles = StyleSheet.create({
   kpiCard: {
-    padding: 20,
-    borderRadius: 16,
+    padding: isNative ? 16 : 20,
+    borderRadius: isNative ? 12 : 16,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     backgroundColor: Colors.card,
   },
-  kpiValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: Colors.text,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  kpiLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  primaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  primaryBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  noCandidates: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
-  negHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  negVendor: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  negCategory: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  negGrid: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  negGridItem: {
-    flex: 1,
-    marginRight: 12,
-  },
-  negLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginBottom: 2,
-  },
-  negNum: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-  },
+  kpiValue: { fontSize: isNative ? 24 : 26, fontWeight: '700', color: Colors.text, marginTop: 10, marginBottom: 4 },
+  kpiLabel: { fontSize: 12, color: Colors.textSecondary },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors.primary },
+  primaryBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  noCandidates: { fontSize: 14, color: Colors.textSecondary },
+  negHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  negVendor: { fontSize: isNative ? 18 : 20, fontWeight: '700', color: Colors.text },
+  negCategory: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
+  negGrid: { flexDirection: 'row', marginBottom: 12 },
+  negGridNative: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  negGridItem: { flex: 1, marginRight: 12 },
+  negGridItemNative: { flex: 0, minWidth: '30%' as any, marginRight: 0 },
+  negLabel: { fontSize: 12, color: Colors.textSecondary, marginBottom: 2 },
+  negNum: { fontSize: isNative ? 15 : 16, fontWeight: '600', color: Colors.text },
   savings: { color: '#22c55e' },
-  stageBox: {
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: Colors.inputBg,
-    marginBottom: 14,
-  },
-  stageStrategy: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  negActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  outlineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  outlineBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  primaryOutlineBtn: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
+  stageBox: { padding: isNative ? 12 : 14, borderRadius: 10, backgroundColor: Colors.inputBg, marginBottom: 14 },
+  stageStrategy: { fontSize: 13, color: Colors.textSecondary },
+  negActions: { flexDirection: 'row', gap: 10 },
+  negActionsNative: { gap: 8 },
+  outlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
+  outlineBtnNative: { paddingHorizontal: 14, paddingVertical: 12, flex: 1, justifyContent: 'center' },
+  outlineBtnText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+  primaryOutlineBtn: { borderColor: Colors.primary, backgroundColor: 'rgba(255,255,255,0.06)' },
 });
