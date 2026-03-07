@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, LayoutChangeEvent, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, LayoutChangeEvent, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { contentStyles } from '../constants/contentStyles';
@@ -16,6 +16,7 @@ type LastUploadResult = {
   analysis: ReturnType<typeof analyzeUpload>;
   inserted: number;
   rejected: number;
+  error?: string;
 };
 
 export default function DashboardContent() {
@@ -56,11 +57,22 @@ export default function DashboardContent() {
     setLastUpload(null);
     try {
       const { rows, rejected } = parseCsvToTransactions(csvText);
-      const { inserted } = await insertTransactions(activeWorkspaceId, rows);
+      const result = await insertTransactions(activeWorkspaceId, rows);
       const analysis = analyzeUpload(rows);
-      setLastUpload({ workspaceId: activeWorkspaceId, fileName, analysis, inserted, rejected });
-    } catch {
+      setLastUpload({
+        workspaceId: activeWorkspaceId,
+        fileName,
+        analysis,
+        inserted: result.inserted,
+        rejected,
+        error: result.error,
+      });
+      if (result.error) {
+        Alert.alert('Upload problem', result.error);
+      }
+    } catch (e) {
       setLastUpload(null);
+      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setUploading(false);
     }
