@@ -38,11 +38,11 @@ type WorkspaceContextValue = {
   setOverviewRange: (r: OverviewRange) => void;
   activeWorkspaceTransactions: Transaction[];
   setActiveWorkspaceId: (id: string | null) => void;
-  createWorkspace: (month: number, year: number) => Promise<Workspace | null>;
+  createWorkspace: (month: number, year: number) => Promise<{ workspace: Workspace } | { error: string }>;
   refetchWorkspaces: () => Promise<void>;
   refreshActiveTransactions: () => Promise<void>;
   updateWorkspaceTotal: (workspaceId: string) => Promise<void>;
-  insertTransactions: (workspaceId: string, rows: TransactionRow[]) => Promise<{ inserted: number; rejected: number }>;
+  insertTransactions: (workspaceId: string, rows: TransactionRow[]) => Promise<{ inserted: number; rejected: number; error?: string }>;
   isDemoMode: boolean;
 };
 
@@ -149,24 +149,27 @@ export function WorkspaceProvider({
     refreshActiveTransactions();
   }, [activeWorkspaceId, overviewRange, refreshActiveTransactions]);
 
-  const createWorkspace = useCallback(async (month: number, year: number): Promise<Workspace | null> => {
+  const createWorkspace = useCallback(async (month: number, year: number): Promise<{ workspace: Workspace } | { error: string }> => {
     if (isDemoMode || !userId || !supabase) {
       const id = `demo-${year}-${month}`;
       const w: Workspace = { id, month, year, total_saved: 0 };
       setWorkspaces(prev => [w, ...prev]);
       setActiveWorkspaceIdState(id);
-      return w;
+      return { workspace: w };
     }
     const { data, error } = await supabase
       .from('workspaces')
       .insert({ user_id: userId, month, year, total_saved: 0 })
       .select('id, user_id, month, year, total_saved, created_at')
       .single();
-    if (error) return null;
+    if (error) {
+      const msg = error.code === '23505' ? 'That month already has a workspace.' : error.message;
+      return { error: msg };
+    }
     const workspace = data as Workspace;
     setWorkspaces(prev => [workspace, ...prev]);
     setActiveWorkspaceIdState(workspace.id);
-    return workspace;
+    return { workspace };
   }, [userId, isDemoMode]);
 
   const updateWorkspaceTotal = useCallback(async (workspaceId: string) => {
@@ -183,7 +186,7 @@ export function WorkspaceProvider({
   const insertTransactions = useCallback(async (
     workspaceId: string,
     rows: TransactionRow[]
-  ): Promise<{ inserted: number; rejected: number }> => {
+  ): Promise<{ inserted: number; rejected: number; error?: string }> => {
     const valid = rows.filter(r => typeof r.amount === 'number' && !Number.isNaN(r.amount));
     const rejected = rows.length - valid.length;
     if (isDemoMode) {
@@ -215,9 +218,9 @@ export function WorkspaceProvider({
         description: r.description ?? null,
       }))
     );
-    if (error) return { inserted: 0, rejected: rows.length };
+    if (error) return { inserted: 0, rejected: rows.length, error: error.message };
     await updateWorkspaceTotal(workspaceId);
-    refreshActiveTransactions();
+    await refreshActiveTransactions();
     return { inserted: valid.length, rejected };
   }, [isDemoMode, activeWorkspaceId, updateWorkspaceTotal, refreshActiveTransactions, overviewWorkspaceIds]);
 
