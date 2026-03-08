@@ -1,22 +1,13 @@
-version: "3.9"
-
 services:
   # ── STT: Distil-Whisper v3 via Speaches ──────────────────────
   speaches:
-    image: ghcr.io/speaches-ai/speaches:latest
+    image: ghcr.io/speaches-ai/speaches:latest-cuda
     ports:
       - "8001:8000"
     environment:
       - WHISPER__MODEL=distil-whisper/distil-large-v3
       - WHISPER__DEVICE=cuda
       - WHISPER__COMPUTE_TYPE=float16
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     restart: unless-stopped
 
   # ── LLM: Llama 3.2 3B via vLLM ──────────────────────────────

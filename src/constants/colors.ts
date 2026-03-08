@@ -70,6 +70,7 @@ const dark = {
 };
 
 export type ColorScheme = typeof dark;
+export const Colors = light;
 export { light as LightColors, dark as DarkColors };
 
 export function getColors(isDark: boolean): ColorScheme {

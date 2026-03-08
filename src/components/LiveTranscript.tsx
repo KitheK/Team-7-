@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../../lib/supabase';
@@ -91,6 +91,20 @@ export default function LiveTranscript({ negotiation, onClose }: Props) {
 
   const isActive = status === 'calling';
 
+  const handleSaveTranscript = () => {
+    if (lines.length === 0) return;
+    const text = lines
+      .map(l => `[${l.speaker === 'agent' ? 'AI Agent' : negotiation.vendor_name}]: ${l.content}`)
+      .join('\n\n');
+    const header = `Transcript — ${negotiation.vendor_name}\n${new Date().toLocaleString()}\n${'─'.repeat(40)}\n\n`;
+    const fullText = header + text;
+
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(fullText);
+      Alert.alert('Copied', 'Transcript copied to clipboard.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -106,6 +120,12 @@ export default function LiveTranscript({ negotiation, onClose }: Props) {
               <Feather name="clock" size={12} color={Colors.danger} />
               <Text style={styles.timerText}>{formatTime(elapsed)}</Text>
             </View>
+          )}
+          {lines.length > 0 && (
+            <Pressable onPress={handleSaveTranscript} style={styles.saveBtn}>
+              <Feather name="download" size={14} color={Colors.primary} />
+              <Text style={styles.saveBtnText}>Save</Text>
+            </Pressable>
           )}
           <Pressable onPress={onClose} style={styles.closeBtn}>
             <Feather name="x" size={18} color={Colors.textSecondary} />
@@ -192,6 +212,18 @@ const styles = StyleSheet.create({
   },
   timerText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
   closeBtn: { padding: 4 },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(231, 116, 73, 0.06)',
+  },
+  saveBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
   transcriptScroll: { maxHeight: 400, minHeight: 120 },
   transcriptContent: { padding: 16, gap: 10 },
   waitingState: {

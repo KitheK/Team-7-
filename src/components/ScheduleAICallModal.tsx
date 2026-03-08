@@ -254,7 +254,7 @@ export default function ScheduleAICallModal({
                     {annualSpend != null && (
                       <View style={s.heroMetaPill}>
                         <Feather name="bar-chart-2" size={14} color={c.primary} />
-                        <Text style={s.heroMetaText}>Annual spend ${Number(annualSpend).toLocaleString()}</Text>
+                        <Text style={s.heroMetaText}>Annual spend ${Number(annualSpend).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</Text>
                       </View>
                     )}
                   </View>
@@ -360,12 +360,12 @@ export default function ScheduleAICallModal({
                     </View>
                     <View style={s.briefRow}>
                       <Text style={s.briefLabel}>Target discount</Text>
-                      <Text style={s.briefValue}>{briefVendor.discount_target_pct ?? 15}%</Text>
+                      <Text style={s.briefValue}>{Number(briefVendor.discount_target_pct ?? 15).toFixed(2)}%</Text>
                     </View>
                     {briefVendor.target_price != null && (
                       <View style={s.briefRow}>
                         <Text style={s.briefLabel}>Target price</Text>
-                        <Text style={s.briefValue}>${Number(briefVendor.target_price).toLocaleString()}</Text>
+                        <Text style={s.briefValue}>${Number(briefVendor.target_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                       </View>
                     )}
                     {talkingPoints.length > 0 && (
@@ -584,10 +584,10 @@ function createStyles(c: ColorScheme) {
       color: c.textSecondary,
       lineHeight: 18,
     },
-    scheduleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.primary, paddingVertical: 14, borderRadius: 10 },
+    scheduleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.primary, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 10, minWidth: 160 },
     scheduleBtnText: { fontSize: 15, fontFamily: 'Jost_500Medium', color: '#fff' },
     disabledBtn: { opacity: 0.5 },
-    footer: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24 },
+    footer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginTop: 24 },
     cancelBtn: { paddingVertical: 10 },
     cancelText: { fontSize: 14, color: c.textSecondary },
     centeredState: { alignItems: 'center', paddingVertical: 32 },

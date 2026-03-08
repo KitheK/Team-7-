@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Linking, Animated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
@@ -6,8 +6,12 @@ import { getContentStyles } from '../constants/contentStyles';
 import Typography from '../components/ui/Typography';
 import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
 import ScheduleAICallModal from '../components/ScheduleAICallModal';
+import LiveTranscript from '../components/LiveTranscript';
+import CallOutcomeToast, { type CallOutcomeData } from '../components/CallOutcomeToast';
 import { useWorkspace } from '../context/WorkspaceContext';
+import type { Negotiation } from '../context/WorkspaceContext';
 import type { Opportunity } from '../types/opportunity';
+import { supabase } from '../../lib/supabase';
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -74,6 +78,9 @@ export default function AlertsContent() {
   const [callAnnualSpend, setCallAnnualSpend] = useState<number | undefined>(undefined);
   const [hoveredVendor, setHoveredVendor] = useState<string | null>(null);
   const [justSecured, setJustSecured] = useState<string | null>(null);
+  const [toastData, setToastData] = useState<CallOutcomeData | null>(null);
+  const [activeTranscriptNeg, setActiveTranscriptNeg] = useState<Negotiation | null>(null);
+  const trackedNegotiationsRef = useRef<Map<string, { status: string; outcome?: string }>>(new Map());
   const c = useColors();
   const cs = useMemo(() => getContentStyles(c), [c]);
   const s = useMemo(() => createStyles(c), [c]);
@@ -88,6 +95,70 @@ export default function AlertsContent() {
   } = useWorkspace();
 
   const resolvedWorkspaceId = activeWorkspaceId === 'all' ? (workspaces[0]?.id ?? null) : activeWorkspaceId;
+
+  // Subscribe to negotiation status changes to update opportunity status
+  useEffect(() => {
+    if (!supabase || !resolvedWorkspaceId) return;
+
+    const channel = supabase
+      .channel(`alerts-negotiations-${resolvedWorkspaceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'negotiations',
+          filter: `workspace_id=eq.${resolvedWorkspaceId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Negotiation;
+
+          if (activeTranscriptNeg?.id === updated.id) {
+            setActiveTranscriptNeg(updated);
+          }
+
+          const prev = trackedNegotiationsRef.current.get(updated.id);
+          const wasActive = prev?.status === 'calling';
+
+          if (updated.status === 'completed' && wasActive) {
+            const opp = opportunities.find(
+              o => o.type === 'ai_negotiation' && o.vendor_name === updated.vendor_name && o.status === 'ai_call_started'
+            );
+            if (opp) {
+              updateOpportunityStatus(opp.id, 'ai_call_completed');
+            }
+          }
+
+          if (updated.status === 'failed' && wasActive) {
+            const opp = opportunities.find(
+              o => o.type === 'ai_negotiation' && o.vendor_name === updated.vendor_name && o.status === 'ai_call_started'
+            );
+            if (opp) {
+              updateOpportunityStatus(opp.id, 'ai_call_completed');
+            }
+          }
+
+          const outcomeJustArrived =
+            updated.status === 'completed' &&
+            updated.outcome &&
+            (!prev?.outcome || wasActive);
+
+          if (outcomeJustArrived) {
+            setToastData({
+              vendorName: updated.vendor_name,
+              outcome: updated.outcome as CallOutcomeData['outcome'],
+              agreedDiscount: updated.agreed_discount,
+              annualSpend: updated.annual_spend,
+            });
+          }
+
+          trackedNegotiationsRef.current.set(updated.id, { status: updated.status, outcome: updated.outcome });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase!.removeChannel(channel); };
+  }, [resolvedWorkspaceId, opportunities, updateOpportunityStatus, activeTranscriptNeg?.id]);
 
   const cancellationQueue = useMemo(
     () => opportunities.filter(o => o.type === 'email_cancellation')
@@ -177,7 +248,10 @@ export default function AlertsContent() {
   };
 
   const isResolved = (o: Opportunity) => o.status === 'resolved';
-  const isCallStarted = (o: Opportunity) =>
+  const isCallInProgress = (o: Opportunity) => o.status === 'ai_call_started';
+  const isCallDone = (o: Opportunity) =>
+    ['ai_call_completed', 'resolved'].includes(o.status);
+  const isCallAny = (o: Opportunity) =>
     ['ai_call_started', 'ai_call_completed', 'resolved'].includes(o.status);
 
   const statusLabel = (o: Opportunity): string => {
@@ -188,6 +262,22 @@ export default function AlertsContent() {
       default: return '';
     }
   };
+
+  const handleViewLiveTranscript = useCallback(async (opp: Opportunity) => {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from('negotiations')
+      .select('*')
+      .eq('vendor_name', opp.vendor_name)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      const neg = data as Negotiation;
+      trackedNegotiationsRef.current.set(neg.id, { status: neg.status, outcome: neg.outcome });
+      setActiveTranscriptNeg(neg);
+    }
+  }, []);
 
   const CIRCLE = isNative ? 120 : 140;
 
@@ -319,17 +409,36 @@ export default function AlertsContent() {
               </View>
 
               {negotiationQueue.map(opp => {
-                const started = isCallStarted(opp);
+                const inProgress = isCallInProgress(opp);
+                const completed = isCallDone(opp);
+                const anyCall = isCallAny(opp);
                 const done = isResolved(opp);
                 const isHovered = hoveredVendor === `negotiate-${opp.id}`;
+
+                let btnLabel = 'Start AI call';
+                let btnIcon: 'radio' | 'loader' | 'check-circle' = 'radio';
+                let btnStyle = s.btnAccent;
+                let btnTextStyle = s.btnAccentText;
+                if (inProgress) {
+                  btnLabel = 'Call in progress';
+                  btnIcon = 'loader';
+                  btnStyle = s.btnStarted;
+                  btnTextStyle = s.btnStartedText;
+                } else if (completed) {
+                  btnLabel = 'Call completed';
+                  btnIcon = 'check-circle';
+                  btnStyle = s.btnDone;
+                  btnTextStyle = s.btnDoneText;
+                }
+
                 return (
                   <View
                     key={opp.id}
-                    style={[s.vendorRow, started && s.vendorRowStarted]}
+                    style={[s.vendorRow, inProgress && s.vendorRowStarted, completed && s.vendorRowCompleted]}
                   >
                     <View style={s.vendorTop}>
                       <View style={s.vendorInfo}>
-                        <Text style={[s.vendorName, started && { opacity: 0.5 }]}>{opp.vendor_name}</Text>
+                        <Text style={[s.vendorName, anyCall && { opacity: 0.5 }]}>{opp.vendor_name}</Text>
                         <Text style={s.vendorMeta} numberOfLines={2}>{opp.explanation}</Text>
                       </View>
                       <View style={s.vendorSavings}>
@@ -337,25 +446,34 @@ export default function AlertsContent() {
                           ${Math.round(opp.estimated_annual_savings).toLocaleString()}
                         </Text>
                         <Text style={s.vendorSavingsSub}>
-                          {done ? 'secured / yr' : started ? 'in progress' : 'possible / yr'}
+                          {done ? 'secured / yr' : inProgress ? 'in progress' : completed ? 'completed' : 'possible / yr'}
                         </Text>
                       </View>
                     </View>
                     <View style={s.vendorActions}>
+                      {anyCall ? (
+                        <Pressable
+                          onPress={() => handleViewLiveTranscript(opp)}
+                          style={({ pressed }) => [s.btnOutline, pressed && s.pressDown]}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Feather name="file-text" size={13} color={c.text} />
+                          <Text style={s.btnOutlineText}>Transcript</Text>
+                        </Pressable>
+                      ) : null}
                       <Pressable
                         onHoverIn={() => setHoveredVendor(`negotiate-${opp.id}`)}
                         onHoverOut={() => setHoveredVendor(null)}
-                        onPress={() => handleScheduleCall(opp)}
+                        onPress={() => (anyCall ? undefined : handleScheduleCall(opp))}
                         style={({ pressed }) => [
-                          started ? s.btnStarted : s.btnAccent,
-                          isHovered && !started && s.btnAccentHover,
+                          btnStyle,
+                          isHovered && !anyCall && s.btnAccentHover,
                           pressed && s.pressDown,
+                          anyCall && s.btnStarted,
                         ]}
                       >
-                        <Feather name={started ? 'loader' : 'radio'} size={13} color={started ? c.primary : c.white} />
-                        <Text style={started ? s.btnStartedText : s.btnAccentText}>
-                          {started ? 'Call started' : 'Start AI call'}
-                        </Text>
+                        <Feather name={btnIcon} size={13} color={anyCall ? (completed ? c.success : c.primary) : c.white} />
+                        <Text style={btnTextStyle}>{btnLabel}</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -366,19 +484,38 @@ export default function AlertsContent() {
         </View>
       )}
 
+      {activeTranscriptNeg && (
+        <LiveTranscript
+          negotiation={activeTranscriptNeg}
+          onClose={() => setActiveTranscriptNeg(null)}
+        />
+      )}
+
       <ScheduleAICallModal
         visible={callModalVisible}
         onClose={() => setCallModalVisible(false)}
         vendorName={callVendor}
         workspaceId={resolvedWorkspaceId}
         annualSpend={callAnnualSpend}
-        onCallStarted={async () => {
+        onCallStarted={async (negotiationId: string) => {
           const opp = opportunities.find(o => o.vendor_name === callVendor);
           if (opp) {
             await updateOpportunityStatus(opp.id, 'ai_call_started');
           }
+          trackedNegotiationsRef.current.set(negotiationId, { status: 'calling' });
+
+          if (supabase) {
+            const { data } = await supabase
+              .from('negotiations')
+              .select('*')
+              .eq('id', negotiationId)
+              .single();
+            if (data) setActiveTranscriptNeg(data as Negotiation);
+          }
         }}
       />
+
+      <CallOutcomeToast data={toastData} onDismiss={() => setToastData(null)} />
     </>
   );
 }
@@ -490,6 +627,10 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     vendorRowStarted: {
       borderColor: c.primary,
+      opacity: 0.65,
+    },
+    vendorRowCompleted: {
+      borderColor: c.success,
       opacity: 0.65,
     },
     vendorTop: {

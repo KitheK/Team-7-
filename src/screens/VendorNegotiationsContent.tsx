@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Linking, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -9,6 +9,7 @@ import LiveTranscript from '../components/LiveTranscript';
 import PostCallSummary from '../components/PostCallSummary';
 import VendorPreferencesPanel from '../components/VendorPreferencesPanel';
 import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
+import CallOutcomeToast, { type CallOutcomeData } from '../components/CallOutcomeToast';
 import { useWorkspace } from '../context/WorkspaceContext';
 import type { Negotiation } from '../context/WorkspaceContext';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
@@ -38,6 +39,8 @@ export default function VendorNegotiationsContent() {
   const [negotiations, setNegotiations] = useState<Negotiation[]>([]);
   const [activeTranscriptNeg, setActiveTranscriptNeg] = useState<Negotiation | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [toastData, setToastData] = useState<CallOutcomeData | null>(null);
+  const prevNegotiationsRef = useRef<Map<string, { status: string; outcome?: string }>>(new Map());
 
   const { activeWorkspaceTransactions, activeWorkspaceId, workspaces } = useWorkspace();
   const { subscriptions, priceCreepSignals, totalAmount, isEmpty } = useWorkspaceData(activeWorkspaceTransactions);
@@ -57,7 +60,13 @@ export default function VendorNegotiationsContent() {
       .select('*')
       .eq('workspace_id', resolvedWorkspaceId)
       .order('created_at', { ascending: false });
-    if (data) setNegotiations(data as Negotiation[]);
+    if (data) {
+      const negs = data as Negotiation[];
+      setNegotiations(negs);
+      const map = new Map<string, { status: string; outcome?: string }>();
+      negs.forEach(n => map.set(n.id, { status: n.status, outcome: n.outcome }));
+      prevNegotiationsRef.current = map;
+    }
   }, [resolvedWorkspaceId]);
 
   useEffect(() => { fetchNegotiations(); }, [fetchNegotiations]);
@@ -81,10 +90,28 @@ export default function VendorNegotiationsContent() {
             setNegotiations(prev => [payload.new as Negotiation, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as Negotiation;
+            const tracked = prevNegotiationsRef.current.get(updated.id);
+
             setNegotiations(prev => prev.map(n => n.id === updated.id ? updated : n));
             if (activeTranscriptNeg?.id === updated.id) {
               setActiveTranscriptNeg(updated);
             }
+
+            const outcomeJustArrived =
+              updated.status === 'completed' &&
+              updated.outcome &&
+              (!tracked?.outcome || tracked.status === 'calling');
+
+            if (outcomeJustArrived) {
+              setToastData({
+                vendorName: updated.vendor_name,
+                outcome: updated.outcome as CallOutcomeData['outcome'],
+                agreedDiscount: updated.agreed_discount,
+                annualSpend: updated.annual_spend,
+              });
+            }
+
+            prevNegotiationsRef.current.set(updated.id, { status: updated.status, outcome: updated.outcome });
           }
         }
       )
@@ -142,7 +169,7 @@ export default function VendorNegotiationsContent() {
         next[existingIndex] = startedNegotiation;
         return next;
       });
-      setActiveTranscriptNeg(startedNegotiation);
+      // Don't auto-open full transcript; live subtitles overlay will show
       return;
     }
 
@@ -215,7 +242,7 @@ export default function VendorNegotiationsContent() {
         </View>
       </View>
 
-      {/* Live transcript for active calls */}
+      {/* Full transcript panel – opened via "View transcript" */}
       {activeTranscriptNeg && (
         <LiveTranscript
           negotiation={activeTranscriptNeg}
@@ -224,7 +251,7 @@ export default function VendorNegotiationsContent() {
       )}
 
       {/* Active calls banner */}
-      {activeNegotiations.length > 0 && !activeTranscriptNeg && (
+      {activeNegotiations.length > 0 && (
         <View style={styles.activeBanner}>
           <View style={styles.activeBannerLeft}>
             <View style={styles.pulseDot} />
@@ -236,7 +263,7 @@ export default function VendorNegotiationsContent() {
             style={styles.viewCallBtn}
             onPress={() => setActiveTranscriptNeg(activeNegotiations[0])}
           >
-            <Text style={styles.viewCallBtnText}>View live</Text>
+            <Text style={styles.viewCallBtnText}>View transcript</Text>
           </Pressable>
         </View>
       )}
@@ -336,6 +363,8 @@ export default function VendorNegotiationsContent() {
         workspaceId={resolvedWorkspaceId}
         onCallStarted={handleCallStarted}
       />
+
+      <CallOutcomeToast data={toastData} onDismiss={() => setToastData(null)} />
     </>
   );
 }
