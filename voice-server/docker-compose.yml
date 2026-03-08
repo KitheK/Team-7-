@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  # ── STT: Distil-Whisper v3 via Speaches ──────────────────────
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - WHISPER__MODEL=distil-whisper/distil-large-v3
+      - WHISPER__DEVICE=cuda
+      - WHISPER__COMPUTE_TYPE=float16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ── LLM: Llama 3.2 3B via vLLM ──────────────────────────────
+  vllm:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8002:8000"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    command: >
+      --model meta-llama/Llama-3.2-3B-Instruct
+      --max-model-len 4096
+      --gpu-memory-utilization 0.45
+      --dtype half
+      --enforce-eager
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ── TTS: Sesame CSM-1B via custom FastAPI server ─────────────
+  csm-tts:
+    build:
+      context: .
+      dockerfile: Dockerfile.csm
+    ports:
+      - "8003:8003"
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - CSM_DEVICE=cuda
+      - CSM_SPEAKER_ID=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ── Pipecat Pipeline Orchestrator ────────────────────────────
+  pipecat:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipecat
+    ports:
+      - "8765:8765"
+    env_file:
+      - .env
+    environment:
+      - STT_URL=http://speaches:8000
+      - LLM_URL=http://vllm:8000/v1
+      - TTS_URL=http://csm-tts:8003
+    depends_on:
+      - speaches
+      - vllm
+      - csm-tts
+    restart: unless-stopped

@@ -26,6 +26,49 @@ export type TransactionRow = {
   description: string | null;
 };
 
+export type NegotiationStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'cancelled';
+export type NegotiationOutcome = 'success' | 'partial' | 'rejected' | 'no_answer' | 'error';
+export type NegotiationTone = 'collaborative' | 'assertive' | 'firm';
+
+export type Negotiation = {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  vendor_name: string;
+  vendor_phone?: string;
+  status: NegotiationStatus;
+  tone: NegotiationTone;
+  call_id?: string;
+  target_discount?: number;
+  agreed_discount?: number;
+  annual_spend?: number;
+  script?: Record<string, any>;
+  brief?: Record<string, any>;
+  outcome?: NegotiationOutcome;
+  follow_up_email?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TranscriptLine = {
+  id: string;
+  negotiation_id: string;
+  speaker: 'agent' | 'vendor';
+  content: string;
+  timestamp_ms: number;
+  created_at: string;
+};
+
+export type VendorPreference = {
+  id: string;
+  user_id: string;
+  vendor_name: string;
+  do_not_call: boolean;
+  preferred_tone: NegotiationTone;
+  notes?: string;
+  created_at: string;
+};
+
 export const OVERVIEW_ID = 'all';
 
 export type OverviewRange = 'all' | 'last3' | 'last6';
