@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Linking, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Linking, Animated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
 import { getContentStyles } from '../constants/contentStyles';
@@ -151,13 +151,14 @@ export default function AlertsContent() {
   }
 
   const handleDraftEmail = async (opp: Opportunity) => {
-    const body = `Subject: Account review — ${opp.vendor_name}\n\nHi,\n\nI'd like to review charges for ${opp.vendor_name}. I noticed spend totaling $${Math.round(opp.annualized_spend).toLocaleString()}/yr and want to discuss adjustments or cancellation.\n\nPlease let me know a convenient time for a call.\n\nBest regards`;
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(body);
-      Alert.alert('Copied', 'Email draft copied to clipboard.');
-    } else {
-      Linking.openURL(`mailto:?body=${encodeURIComponent(body)}`);
-    }
+    const subject = `Request to cancel my ${opp.vendor_name} subscription`;
+    const body = buildCancellationEmailBody(
+      opp.vendor_name,
+      opp.category ?? '',
+      opp.latest_monthly_spend ?? Math.round(opp.annualized_spend / 12),
+      opp.recurring_months,
+    );
+    Linking.openURL(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
     if (opp.status === 'recommended' || opp.status === 'detected') {
       await updateOpportunityStatus(opp.id, 'email_drafted');
     }
