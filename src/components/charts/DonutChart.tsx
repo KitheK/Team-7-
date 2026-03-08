@@ -71,7 +71,7 @@ export default function DonutChart({ width, height, data }: Props) {
               textAnchor="middle"
               fontFamily={chartFontFamily}
               fontSize={Typography.chart.centerPrimary}
-              fontWeight="700"
+              fontWeight="400"
               fill={c.text}
             >
               {centerLabel}
@@ -124,7 +124,7 @@ export default function DonutChart({ width, height, data }: Props) {
           textAnchor="middle"
           fontFamily={chartFontFamily}
           fontSize={Typography.chart.centerPrimary}
-          fontWeight="700"
+          fontWeight="400"
           fill={c.text}
         >
           {centerLabel}

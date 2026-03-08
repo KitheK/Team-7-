@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useColors, useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID } from '../context/WorkspaceContext';
 import NewWorkspaceModal from './NewWorkspaceModal';
+import theme from '../../constants/theme';
+import Typography from './ui/Typography';
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -25,38 +27,37 @@ type Props = {
 
 export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: Props) {
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
-  const c = useColors();
   const { isDark, toggle } = useTheme();
   const { workspaces, activeWorkspaceId, setActiveWorkspaceId, createWorkspace, overviewRange, setOverviewRange } = useWorkspace();
   const isAllMonths = activeWorkspaceId === OVERVIEW_ID;
-  const s = useMemo(() => createStyles(c), [c]);
+  const s = useMemo(() => createStyles(), []);
 
   return (
     <View style={[s.container, isNative && s.containerNative]}>
       <View style={[s.logoSection, isNative && s.logoSectionNative]}>
         <View style={s.logoIcon}>
-          <Feather name="layers" size={isNative ? 20 : 18} color={c.primary} />
+          <Feather name="layers" size={isNative ? 20 : 18} color={theme.colors.primary} />
         </View>
         <View style={s.logoTextWrap}>
-          <Text style={s.logoTitle}>LeanLedger</Text>
-          <Text style={s.logoSubtitle}>Business finances</Text>
+          <Typography variant="title">Alfred</Typography>
+          <Typography variant="caption" tone="muted" style={s.logoSubtitle}>Business finances</Typography>
         </View>
         {isNative && onClose && (
           <Pressable onPress={onClose} style={s.closeBtn}>
-            <Feather name="x" size={22} color={c.sidebarText} />
+            <Feather name="x" size={22} color={theme.colors.textSecondary} />
           </Pressable>
         )}
       </View>
 
       <View style={[s.workspaceSection, isNative && s.workspaceSectionNative]}>
-        <Text style={s.sectionLabel}>MONTHS</Text>
+        <Typography variant="label" tone="muted" style={s.sectionLabel}>MONTHS</Typography>
         <ScrollView style={s.workspaceList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <Pressable
             style={[s.workspaceItem, isAllMonths && s.workspaceItemActive]}
             onPress={() => setActiveWorkspaceId(OVERVIEW_ID)}
           >
-            <Feather name="layers" size={14} color={isAllMonths ? c.primary : c.sidebarText} />
-            <Text style={[s.workspaceLabel, isAllMonths && s.workspaceLabelActive]}>All months</Text>
+            <Feather name="layers" size={14} color={isAllMonths ? theme.colors.primary : theme.colors.textSecondary} />
+            <Typography variant="bodySmall" style={[s.workspaceLabel, isAllMonths && s.workspaceLabelActive]}>All months</Typography>
           </Pressable>
           {isAllMonths && (
             <View style={s.rangeFilter}>
@@ -66,9 +67,9 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
                   style={[s.rangeChip, overviewRange === range && s.rangeChipActive]}
                   onPress={() => setOverviewRange(range)}
                 >
-                  <Text style={[s.rangeChipText, overviewRange === range && s.rangeChipTextActive]}>
+                  <Typography variant="caption" style={[s.rangeChipText, overviewRange === range && s.rangeChipTextActive]}>
                     {range === 'all' ? 'All' : range === 'last3' ? 'Last 3' : 'Last 6'}
-                  </Text>
+                  </Typography>
                 </Pressable>
               ))}
             </View>
@@ -81,19 +82,21 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
                 style={[s.workspaceItem, active && s.workspaceItemActive]}
                 onPress={() => setActiveWorkspaceId(w.id)}
               >
-                <Feather name="calendar" size={14} color={active ? c.primary : c.sidebarText} />
-                <Text style={[s.workspaceLabel, active && s.workspaceLabelActive]}>{workspaceLabel(w)}</Text>
+                <Feather name="calendar" size={14} color={active ? theme.colors.primary : theme.colors.textSecondary} />
+                <Typography variant="bodySmall" style={[s.workspaceLabel, active && s.workspaceLabelActive]}>
+                  {workspaceLabel(w)}
+                </Typography>
               </Pressable>
             );
           })}
         </ScrollView>
         <Pressable style={s.addMonthBtn} onPress={() => setShowNewWorkspace(true)}>
-          <Feather name="plus" size={14} color={c.primary} />
-          <Text style={s.addMonthText}>Add a month</Text>
+          <Feather name="plus" size={14} color={theme.colors.primary} />
+          <Typography variant="bodySmall" tone="accent" style={s.addMonthText}>Add a month</Typography>
         </Pressable>
       </View>
 
-      <Text style={s.sectionLabel}>MENU</Text>
+      <Typography variant="label" tone="muted" style={s.sectionLabel}>MENU</Typography>
       {mainNav.map((item) => {
         const isActive = item.key === activeItem;
         return (
@@ -110,11 +113,11 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
             <Feather
               name={item.icon}
               size={isNative ? 20 : 18}
-              color={isActive ? c.primary : c.sidebarText}
+              color={isActive ? theme.colors.primary : theme.colors.textSecondary}
             />
-            <Text style={[s.navLabel, isNative && s.navLabelNative, isActive && s.navLabelActive]}>
+            <Typography variant="bodySmall" style={[s.navLabel, isNative && s.navLabelNative, isActive && s.navLabelActive]}>
               {item.label}
-            </Text>
+            </Typography>
           </Pressable>
         );
       })}
@@ -122,13 +125,15 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
       <View style={s.spacer} />
 
       <Pressable style={s.themeBtn} onPress={toggle}>
-        <Feather name={isDark ? 'sun' : 'moon'} size={16} color={c.sidebarText} />
-        <Text style={s.themeBtnText}>{isDark ? 'Light mode' : 'Dark mode'}</Text>
+        <Feather name={isDark ? 'sun' : 'moon'} size={16} color={theme.colors.textSecondary} />
+        <Typography variant="bodySmall" tone="secondary" style={s.themeBtnText}>
+          {isDark ? 'Light mode' : 'Dark mode'}
+        </Typography>
       </Pressable>
 
       <Pressable style={[s.logoutBtn, isNative && s.logoutBtnNative]} onPress={onLogout}>
-        <Feather name="log-out" size={isNative ? 20 : 16} color={c.sidebarText} />
-        <Text style={s.logoutText}>Log out</Text>
+        <Feather name="log-out" size={isNative ? 20 : 16} color={theme.colors.textSecondary} />
+        <Typography variant="bodySmall" tone="secondary" style={s.logoutText}>Log out</Typography>
       </Pressable>
 
       <NewWorkspaceModal
@@ -140,65 +145,126 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
   );
 }
 
-function createStyles(c: ReturnType<typeof useColors>) {
+function createStyles() {
   return StyleSheet.create({
     container: {
-      width: '100%', minWidth: 200, flex: 1, backgroundColor: c.sidebar,
-      paddingVertical: 20, paddingHorizontal: 14, borderRightWidth: 1, borderRightColor: c.border,
+      width: '100%',
+      minWidth: 220,
+      flex: 1,
+      backgroundColor: theme.colors.surfaceElevated,
+      paddingVertical: theme.spacing.xl,
+      paddingHorizontal: theme.spacing.md,
+      borderRightWidth: 1,
+      borderRightColor: theme.colors.border,
     },
-    containerNative: { paddingTop: 8, paddingBottom: 12, paddingHorizontal: 16, borderRightWidth: 0 },
-    logoSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingHorizontal: 4 },
+    containerNative: {
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRightWidth: 0,
+    },
+    logoSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.xl,
+      paddingHorizontal: theme.spacing.xs,
+    },
     logoSectionNative: { marginBottom: 20, paddingTop: 4 },
     logoIcon: {
-      width: 36, height: 36, borderRadius: 10, backgroundColor: c.primaryLight,
-      alignItems: 'center', justifyContent: 'center', marginRight: 10,
+      width: 40,
+      height: 40,
+      borderRadius: theme.radius.md,
+      backgroundColor: theme.colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
     logoTextWrap: { flex: 1, minWidth: 0 },
-    logoTitle: { color: c.text, fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
-    logoSubtitle: { color: c.textTertiary, fontSize: 11, marginTop: 1 },
+    logoSubtitle: { marginTop: 1 },
     closeBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     sectionLabel: {
-      fontSize: 10, fontWeight: '700', color: c.textTertiary,
-      letterSpacing: 1.2, marginBottom: 8, paddingHorizontal: 8,
+      letterSpacing: 1.2,
+      marginBottom: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.sm,
     },
-    workspaceSection: { marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+    workspaceSection: {
+      marginBottom: theme.spacing.xl,
+      paddingBottom: theme.spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
     workspaceSectionNative: { marginBottom: 20, paddingBottom: 16 },
     workspaceList: { maxHeight: 140 },
     workspaceItem: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8,
-      borderRadius: 8, marginBottom: 2,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.sm,
+      borderRadius: theme.radius.sm,
+      marginBottom: 4,
     },
-    workspaceItemActive: { backgroundColor: c.primaryLight },
-    workspaceLabel: { fontSize: 12, color: c.sidebarText, marginLeft: 8, flex: 1 },
-    workspaceLabelActive: { color: c.primary, fontWeight: '600' },
+    workspaceItemActive: { backgroundColor: theme.colors.primarySoft },
+    workspaceLabel: { marginLeft: theme.spacing.sm, flex: 1, color: theme.colors.textSecondary },
+    workspaceLabelActive: { color: theme.colors.primary, fontWeight: theme.typography.weights.semibold },
     rangeFilter: { flexDirection: 'row', gap: 4, marginLeft: 28, marginBottom: 6 },
-    rangeChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: c.inputBg },
-    rangeChipActive: { backgroundColor: c.primaryLight },
-    rangeChipText: { fontSize: 11, color: c.textTertiary },
-    rangeChipTextActive: { color: c.primary, fontWeight: '600' },
-    addMonthBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8, marginTop: 4 },
-    addMonthText: { fontSize: 12, color: c.primary, marginLeft: 6, fontWeight: '500' },
-    navItem: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10,
-      borderRadius: 10, marginBottom: 2,
+    rangeChip: {
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 3,
+      borderRadius: 6,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
-    navItemNative: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, marginBottom: 4 },
-    navItemActive: { backgroundColor: c.primaryLight },
+    rangeChipActive: { backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primarySoft },
+    rangeChipText: { color: theme.colors.textMuted },
+    rangeChipTextActive: { color: theme.colors.primary, fontWeight: theme.typography.weights.semibold },
+    addMonthBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.sm,
+      marginTop: theme.spacing.xs,
+      borderRadius: theme.radius.sm,
+    },
+    addMonthText: { marginLeft: 6, fontWeight: theme.typography.weights.medium },
+    navItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+      borderRadius: theme.radius.sm,
+      marginBottom: 4,
+    },
+    navItemNative: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: theme.radius.md, marginBottom: 4 },
+    navItemActive: { backgroundColor: theme.colors.primarySoft },
     navItemPressed: { opacity: 0.7 },
-    navLabel: { color: c.sidebarText, fontSize: 13, fontWeight: '600', marginLeft: 10 },
-    navLabelNative: { fontSize: 16, marginLeft: 14 },
-    navLabelActive: { color: c.primary },
+    navLabel: { color: theme.colors.textSecondary, marginLeft: 10, fontWeight: theme.typography.weights.semibold },
+    navLabelNative: { fontSize: 16, marginLeft: 14, lineHeight: 22 },
+    navLabelActive: { color: theme.colors.primary },
     spacer: { flex: 1 },
     themeBtn: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10,
-      borderRadius: 8, marginBottom: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: 10,
+      borderRadius: theme.radius.sm,
+      marginBottom: 4,
+      backgroundColor: theme.colors.surface,
     },
-    themeBtnText: { color: c.sidebarText, fontSize: 12, marginLeft: 8, fontWeight: '500' },
+    themeBtnText: { marginLeft: theme.spacing.sm, fontWeight: theme.typography.weights.medium },
     logoutBtn: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8,
-      borderRadius: 8, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      borderRadius: theme.radius.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      paddingTop: 12,
     },
     logoutBtnNative: { paddingVertical: 14, paddingHorizontal: 10 },
-    logoutText: { color: c.sidebarText, fontSize: 13, marginLeft: 10, fontWeight: '500' },
+    logoutText: { marginLeft: 10, fontWeight: theme.typography.weights.medium },
   });
 }

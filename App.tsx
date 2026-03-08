@@ -3,6 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
+import { Jost_400Regular, Jost_500Medium, Jost_700Bold } from '@expo-google-fonts/jost';
+import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { WorkspaceProvider } from './src/context/WorkspaceContext';
@@ -13,22 +16,20 @@ import AppLayout from './src/components/AppLayout';
 import DashboardContent from './src/screens/DashboardContent';
 import SpendingContent from './src/screens/SpendingContent';
 import AlertsContent from './src/screens/AlertsContent';
-import WhatIfContent from './src/screens/WhatIfContent';
-
-const PAGE_CONTENT: Record<string, React.ReactNode> = {
-  Dashboard: <DashboardContent />,
-  Spending: <SpendingContent />,
-  Alerts: <AlertsContent />,
-  'What If': <WhatIfContent />,
-};
 
 function AppInner() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
-  const [activeNav, setActiveNav] = useState('Dashboard');
+  const [activeNav, setActiveNav] = useState('Home');
   const c = useColors();
   const { isDark } = useTheme();
+
+  const renderPage = () => {
+    if (activeNav === 'Spending') return <SpendingContent />;
+    if (activeNav === 'Savings') return <AlertsContent />;
+    return <DashboardContent onOpenMonth={() => setActiveNav('Spending')} />;
+  };
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -69,10 +70,10 @@ function AppInner() {
             <AppLayout
               activeNav={activeNav}
               onItemPress={setActiveNav}
-              onLogout={async () => { await supabase?.auth.signOut(); setDemoMode(false); setActiveNav('Dashboard'); }}
-              userEmail={session?.user?.email ?? 'demo@leanledger.com'}
+              onLogout={async () => { await supabase?.auth.signOut(); setDemoMode(false); setActiveNav('Home'); }}
+              userEmail={session?.user?.email ?? 'demo@alfredio.com'}
             >
-              {PAGE_CONTENT[activeNav] ?? <DashboardContent />}
+              {renderPage()}
             </AppLayout>
           </View>
         </LayoutProvider>
@@ -83,6 +84,21 @@ function AppInner() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Jost_400Regular,
+    Jost_500Medium,
+    Jost_700Bold,
+    PlayfairDisplay_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.fontLoading}>
+        <ActivityIndicator size="large" color="#E77449" />
+      </View>
+    );
+  }
+
   return (
     <ThemeProvider>
       <AppInner />
@@ -93,4 +109,5 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  fontLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EDEBE8' },
 });

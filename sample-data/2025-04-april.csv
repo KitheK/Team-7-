@@ -1,0 +1,23 @@
+vendor_name,amount,transaction_date,description
+AWS Cloud Services,4069.85,2025-04-01,Cloud infrastructure & compute
+AWS Cloud Services,316.17,2025-04-01,Data transfer & bandwidth
+SALESFORCE,1467.33,2025-04-03,CRM platform - Enterprise licenses
+Twilio,1194.74,2025-04-05,Voice & SMS API usage
+HubSpot,774.01,2025-04-02,Marketing Hub Professional
+Datadog Inc,527.42,2025-04-04,Infrastructure monitoring
+Zendesk,367.69,2025-04-06,Customer support platform
+Slack Technologies,205.15,2025-04-01,Business+ plan
+Slack Technologies,202.54,2025-04-15,Business+ plan - duplicate charge
+Zoom Video Communications,145.86,2025-04-01,Business plan - 50 hosts
+Figma,87.43,2025-04-07,Organization plan
+GitHub Inc,148.8,2025-04-10,Team plan - 25 seats
+Notion Labs,78.27,2025-04-08,Team plan
+Adobe Creative Cloud,291.39,2025-04-12,All Apps plan - 10 licenses
+Asana,120.61,2025-04-09,Business tier
+Mailchimp,100.49,2025-04-05,Standard plan - email marketing
+Intercom,190.16,2025-04-11,Support & engagement platform
+WeWork,945.35,2025-04-01,Hot desk membership
+Stripe,68.01,2025-04-18,Payment processing fees
+DigitalOcean,83.31,2025-04-20,Droplet hosting
+Cloudflare,65.88,2025-04-03,Pro plan + Workers
+Amplitude,411.89,2025-04-14,Growth plan - product analytics

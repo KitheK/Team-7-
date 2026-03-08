@@ -1,149 +1,200 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
-import { getContentStyles } from '../constants/contentStyles';
-import UploadZone from '../components/UploadZone';
-import UploadAnalysisCard from '../components/UploadAnalysisCard';
-import { useWorkspace, workspaceLabel, OVERVIEW_ID } from '../context/WorkspaceContext';
-import { parseCsvToTransactions } from '../utils/parseCsv';
-import { analyzeUpload } from '../utils/uploadAnalysis';
-import { useWorkspaceData } from '../hooks/useWorkspaceData';
-import DonutChart from '../components/charts/DonutChart';
+import { useWorkspace } from '../context/WorkspaceContext';
+import Card from '../components/ui/Card';
+import Typography from '../components/ui/Typography';
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
-type UploadResult = {
-  workspaceId: string;
-  fileName: string;
-  analysis: ReturnType<typeof analyzeUpload>;
-  inserted: number;
-  rejected: number;
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+type Props = {
+  onOpenMonth?: () => void;
 };
 
-export default function DashboardContent() {
-  const [uploading, setUploading] = useState(false);
-  const [lastUpload, setLastUpload] = useState<UploadResult | null>(null);
-  const [donutW, setDonutW] = useState(0);
+export default function DashboardContent({ onOpenMonth }: Props) {
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [hoveredMonth, setHoveredMonth] = useState<number | null>(null);
   const c = useColors();
-  const cs = useMemo(() => getContentStyles(c), [c]);
   const s = useMemo(() => createStyles(c), [c]);
 
-  const { activeWorkspace, activeWorkspaceId, activeWorkspaceTransactions, insertTransactions, workspaces } = useWorkspace();
-  const { subscriptionCount, duplicateOrAlertCount, priceCreepSignals } = useWorkspaceData(activeWorkspaceTransactions);
-  const isOverview = activeWorkspaceId === OVERVIEW_ID || !activeWorkspaceId;
+  const {
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    createWorkspace,
+    workspaces,
+    opportunitySummary,
+  } = useWorkspace();
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const values = new Set<number>([currentYear, currentYear - 1, currentYear + 1]);
+    workspaces.forEach(workspace => values.add(workspace.year));
+    return Array.from(values).sort((a, b) => a - b);
+  }, [workspaces]);
+  const selectedYearWorkspaces = useMemo(
+    () => workspaces.filter(workspace => workspace.year === selectedYear).sort((a, b) => a.month - b.month),
+    [workspaces, selectedYear]
+  );
+  const annualTrackedSpend = selectedYearWorkspaces.reduce((sum, workspace) => sum + Number(workspace.total_saved ?? 0), 0);
+  const annualSaved = opportunitySummary.securedSavings;
+  const activeMonthCount = selectedYearWorkspaces.length;
 
-  const viewTotal = useMemo(() => activeWorkspaceTransactions.reduce((sum, t) => sum + Number(t.amount), 0), [activeWorkspaceTransactions]);
+  const monthCards = useMemo(
+    () =>
+      MONTH_NAMES.map((label, index) => {
+        const month = index + 1;
+        const workspace = selectedYearWorkspaces.find(entry => entry.month === month) ?? null;
+        const trackedSpend = Number(workspace?.total_saved ?? 0);
+        const shareOfYear = annualTrackedSpend > 0 ? trackedSpend / annualTrackedSpend : 0;
+        return { label, month, workspace, trackedSpend, shareOfYear };
+      }),
+    [selectedYearWorkspaces, annualTrackedSpend]
+  );
 
-  const byVendor = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const t of activeWorkspaceTransactions) {
-      const v = t.vendor_name || t.description || 'Unknown';
-      map[v] = (map[v] ?? 0) + Number(t.amount);
+  const handleOpenMonth = async (month: number) => {
+    const existing = workspaces.find(workspace => workspace.year === selectedYear && workspace.month === month);
+    if (existing) {
+      setActiveWorkspaceId(existing.id);
+      onOpenMonth?.();
+      return;
     }
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value, color: c.chart[Object.keys(map).indexOf(name) % c.chart.length] }))
-      .sort((a, b) => b.value - a.value);
-  }, [activeWorkspaceTransactions, c.chart]);
-
-  const handleCsv = async (csvText: string, fileName: string) => {
-    if (!activeWorkspaceId || activeWorkspaceId === OVERVIEW_ID) return;
-    setUploading(true);
-    setLastUpload(null);
-    try {
-      const { rows, rejected } = parseCsvToTransactions(csvText);
-      const { inserted } = await insertTransactions(activeWorkspaceId, rows);
-      setLastUpload({ workspaceId: activeWorkspaceId, fileName, analysis: analyzeUpload(rows), inserted, rejected });
-    } catch { setLastUpload(null); }
-    finally { setUploading(false); }
+    const created = await createWorkspace(month, selectedYear);
+    if (created?.id) {
+      setActiveWorkspaceId(created.id);
+      onOpenMonth?.();
+    }
   };
 
-  const showAnalysis = lastUpload && !isOverview && lastUpload.workspaceId === activeWorkspaceId;
-  const alertCount = duplicateOrAlertCount + priceCreepSignals.length;
+  const BUBBLE = isNative ? 80 : 96;
 
   return (
     <>
-      <Text style={cs.pageTitle}>{isOverview ? 'Overview' : activeWorkspace ? workspaceLabel(activeWorkspace) : 'Home'}</Text>
-      <Text style={cs.pageSubtitle}>{isOverview ? 'Your business at a glance.' : 'Upload a statement to get started.'}</Text>
-
-      <View style={s.kpiStrip}>
-        {[
-          { icon: 'dollar-sign' as const, value: `$${viewTotal.toLocaleString()}`, label: isOverview ? 'Total spend' : 'This month', bg: c.primaryLight, fg: c.primary },
-          { icon: 'users' as const, value: `${subscriptionCount}`, label: 'Vendors', bg: c.successLight, fg: c.success },
-          { icon: (alertCount > 0 ? 'alert-triangle' : 'check-circle') as any, value: `${alertCount}`, label: 'Alerts', bg: alertCount > 0 ? c.warningLight : c.successLight, fg: alertCount > 0 ? c.warning : c.success },
-          ...(workspaces.length > 0 ? [{ icon: 'calendar' as const, value: `${workspaces.length}`, label: 'Months', bg: c.primaryLight, fg: c.primary }] : []),
-        ].map((kpi, i) => (
-          <View key={i} style={s.kpiCard}>
-            <View style={[s.kpiIconWrap, { backgroundColor: kpi.bg }]}>
-              <Feather name={kpi.icon} size={18} color={kpi.fg} />
-            </View>
-            <View>
-              <Text style={s.kpiValue}>{kpi.value}</Text>
-              <Text style={s.kpiLabel}>{kpi.label}</Text>
+      {/* ──── Hero: Your 2026 left, bubbles centered, years right; all one row above the grid ──── */}
+      <View style={s.heroSection}>
+        <View style={s.heroLeft}>
+          <Typography variant="display" style={s.heroTitle}>{`Your ${selectedYear}`}</Typography>
+          <Typography variant="bodySmall" tone="secondary" style={s.heroSub}>
+            {activeMonthCount > 0
+              ? `${activeMonthCount} month${activeMonthCount > 1 ? 's' : ''} tracked so far`
+              : 'Start by opening a month below'}
+          </Typography>
+        </View>
+        <View style={s.heroBubbles}>
+          <View style={[s.heroBubble, { width: BUBBLE, height: BUBBLE, borderRadius: BUBBLE / 2, borderColor: c.primary }]}>
+            <View style={[s.heroBubbleFill, { backgroundColor: c.primary, height: activeMonthCount > 0 ? '40%' : '0%' }]} />
+            <View style={s.heroBubbleInner}>
+              <Text style={[s.heroBubbleLabel, { color: c.primary }]}>SPENT</Text>
+              <Text style={s.heroBubbleValue}>
+                {annualTrackedSpend > 0 ? `$${(annualTrackedSpend / 1000).toFixed(0)}K` : '$0'}
+              </Text>
             </View>
           </View>
-        ))}
+          <View style={[s.heroBubble, { width: BUBBLE, height: BUBBLE, borderRadius: BUBBLE / 2, borderColor: c.success }]}>
+            <View style={[s.heroBubbleFill, { backgroundColor: c.success, height: annualSaved > 0 ? '30%' : '8%' }]} />
+            <View style={s.heroBubbleInner}>
+              <Text style={[s.heroBubbleLabel, { color: c.success }]}>SAVED</Text>
+              <Text style={s.heroBubbleValue}>
+                {annualSaved > 0 ? `$${(annualSaved / 1000).toFixed(0)}K` : '$0'}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={s.heroRight}>
+          {years.map(year => (
+            <Pressable
+              key={year}
+              onPress={() => setSelectedYear(year)}
+              style={({ pressed }) => [
+                s.yearChip,
+                selectedYear === year && s.yearChipActive,
+                pressed && s.pressDown,
+              ]}
+            >
+              <Typography variant="bodySmall" style={selectedYear === year ? s.yearChipTextActive : s.yearChipText}>
+                {year}
+              </Typography>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
-      {!isOverview && activeWorkspace && (
-        <View style={cs.card}>
-          <View style={s.uploadHeader}>
-            <Feather name="upload" size={18} color={c.primary} />
-            <Text style={s.uploadTitle}>Add your statement</Text>
-          </View>
-          <Text style={s.uploadSub}>Drop a CSV from your bank or card.</Text>
-          {uploading ? (
-            <View style={s.uploadingRow}>
-              <ActivityIndicator size="small" color={c.primary} />
-              <Text style={s.uploadingText}>Processing...</Text>
-            </View>
-          ) : (
-            <UploadZone onFile={handleCsv} disabled={uploading} />
-          )}
-        </View>
-      )}
+      {/* ──── Month grid (same width as hero; year chips sit in hero row so they don’t pass card margins) ──── */}
+      <View style={s.monthSection}>
+        <View style={s.monthGrid}>
+        {monthCards.map(card => {
+          const isHovered = hoveredMonth === card.month;
+          const fillPct = card.workspace ? Math.max(8, Math.round(card.shareOfYear * 100)) : 0;
+          const CIRCLE_SIZE = isNative ? 56 : 64;
+          return (
+            <Pressable
+              key={`${selectedYear}-${card.month}`}
+              onPress={() => void handleOpenMonth(card.month)}
+              onHoverIn={() => setHoveredMonth(card.month)}
+              onHoverOut={() => setHoveredMonth(cur => (cur === card.month ? null : cur))}
+              style={({ pressed }) => [
+                s.monthCardWrap,
+                isHovered && s.monthCardWrapHovered,
+                pressed && s.pressDown,
+              ]}
+            >
+              <Card
+                padding="md"
+                shadow="subtle"
+                style={[
+                  s.monthCard,
+                  card.workspace && s.monthCardActive,
+                  activeWorkspaceId === card.workspace?.id && s.monthCardSelected,
+                  isHovered && s.monthCardHovered,
+                ]}
+              >
+                <Typography variant="title" style={s.monthLabel}>{card.label}</Typography>
 
-      {showAnalysis && lastUpload && (
-        <UploadAnalysisCard fileName={lastUpload.fileName} analysis={lastUpload.analysis} inserted={lastUpload.inserted} rejected={lastUpload.rejected} />
-      )}
+                <View style={s.monthBody}>
+                  <View style={s.monthLeft}>
+                    <Typography variant="h1" style={s.monthSpend}>
+                      {card.workspace
+                        ? isNative && card.trackedSpend >= 1000
+                          ? `$${(card.trackedSpend / 1000).toFixed(card.trackedSpend >= 10000 ? 0 : 1)}K`
+                          : `$${card.trackedSpend.toLocaleString()}`
+                        : '--'}
+                    </Typography>
+                    <Typography variant="caption" tone="secondary">
+                      {card.workspace ? 'spent this month' : 'no data yet'}
+                    </Typography>
+                  </View>
 
-      {activeWorkspaceTransactions.length > 0 && (
-        <View style={s.twoCol}>
-          <View style={[cs.card, s.txnCard]}>
-            <Text style={s.sectionTitle}>Recent transactions</Text>
-            <Text style={s.sectionSub}>{activeWorkspaceTransactions.length} total &middot; ${viewTotal.toLocaleString()}</Text>
-            {activeWorkspaceTransactions.slice(0, isNative ? 10 : 15).map((t, i) => (
-              <View key={t.id ?? i} style={s.txnRow}>
-                <View style={s.txnVendorWrap}>
-                  <View style={s.txnDot} />
-                  <View style={s.txnInfo}>
-                    <Text style={s.txnVendor} numberOfLines={1}>{t.vendor_name || t.description || '—'}</Text>
-                    <Text style={s.txnDate}>{t.transaction_date || '—'}</Text>
+                  <View style={[s.monthCircle, { width: CIRCLE_SIZE, height: CIRCLE_SIZE, borderRadius: CIRCLE_SIZE / 2 }, card.workspace ? s.monthCircleActive : s.monthCircleEmpty]}>
+                    <View style={[s.monthCircleFill, card.workspace ? { height: `${fillPct}%` } : { height: '0%' }]} />
+                    <View style={s.monthCircleContent}>
+                      {card.workspace ? (
+                        <Text style={s.monthCircleValue}>{Math.round(card.shareOfYear * 100)}%</Text>
+                      ) : (
+                        <Feather name="plus" size={18} color={c.textTertiary} />
+                      )}
+                    </View>
                   </View>
                 </View>
-                <Text style={s.txnAmount}>${Number(t.amount).toLocaleString()}</Text>
-              </View>
-            ))}
-          </View>
-          {byVendor.length > 0 && (
-            <View style={[cs.card, s.chartCard]} onLayout={e => setDonutW(e.nativeEvent.layout.width)}>
-              <Text style={s.sectionTitle}>Spending breakdown</Text>
-              <Text style={s.sectionSub}>{isOverview ? 'All months' : 'This month'}</Text>
-              {donutW > 0 && (
-                <View style={cs.donutContainer}>
-                  <DonutChart width={donutW - (isNative ? 32 : 48)} height={isNative ? 200 : 220} data={byVendor.slice(0, 8)} />
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-      )}
 
-      {activeWorkspaceTransactions.length === 0 && !uploading && (
+                <View style={s.monthCta}>
+                  <Typography variant="caption" style={s.monthCtaText}>
+                    {card.workspace ? 'Open' : 'Create'}
+                  </Typography>
+                  <Feather name="arrow-right" size={13} color={c.primary} />
+                </View>
+              </Card>
+            </Pressable>
+          );
+        })}
+        </View>
+      </View>
+
+      {monthCards.every(card => !card.workspace) && (
         <View style={s.emptyState}>
-          <Feather name="inbox" size={40} color={c.textTertiary} />
-          <Text style={s.emptyTitle}>No data yet</Text>
-          <Text style={s.emptyText}>{isOverview ? 'Select a month and upload a bank statement.' : 'Upload a CSV above to get started.'}</Text>
+          <Feather name="calendar" size={40} color={c.textTertiary} />
+          <Text style={s.emptyTitle}>Start with a month</Text>
+          <Text style={s.emptyText}>Tap any card above to create a workspace and begin tracking.</Text>
         </View>
       )}
     </>
@@ -152,34 +203,128 @@ export default function DashboardContent() {
 
 function createStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    kpiStrip: { flexDirection: isNative ? 'column' : 'row', gap: 12, marginBottom: 20 },
-    kpiCard: {
-      flex: isNative ? 0 : 1, flexDirection: 'row', alignItems: 'center',
-      backgroundColor: c.card, borderRadius: 14, padding: isNative ? 14 : 16,
-      borderWidth: 1, borderColor: c.cardBorder, gap: 12,
+    heroSection: {
+      flexDirection: isNative ? 'column' : 'row',
+      alignItems: 'center',
+      justifyContent: isNative ? 'center' : ('space-between' as const),
+      marginBottom: isNative ? 20 : 18,
+      gap: isNative ? 12 : 0,
     },
-    kpiIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    kpiValue: { fontSize: isNative ? 20 : 22, fontWeight: '700', color: c.text },
-    kpiLabel: { fontSize: 12, color: c.textSecondary, marginTop: 1 },
-    uploadHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-    uploadTitle: { fontSize: 15, fontWeight: '600', color: c.text },
-    uploadSub: { fontSize: 13, color: c.textSecondary, marginBottom: 12 },
-    uploadingRow: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-    uploadingText: { fontSize: 14, color: c.textSecondary, marginLeft: 10 },
-    twoCol: { flexDirection: isNative ? 'column' : 'row', gap: isNative ? 0 : 20 },
-    txnCard: { flex: isNative ? 0 : 1.2 },
-    chartCard: { flex: isNative ? 0 : 1 },
-    sectionTitle: { fontSize: 15, fontWeight: '600', color: c.text, marginBottom: 2 },
-    sectionSub: { fontSize: 12, color: c.textTertiary, marginBottom: 14 },
-    txnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
-    txnVendorWrap: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
-    txnDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary, marginRight: 10, opacity: 0.4 },
-    txnInfo: { flex: 1, minWidth: 0 },
-    txnVendor: { fontSize: 14, fontWeight: '500', color: c.text },
-    txnDate: { fontSize: 11, color: c.textTertiary, marginTop: 2 },
-    txnAmount: { fontSize: 14, fontWeight: '600', color: c.text },
-    emptyState: { alignItems: 'center', padding: 48, backgroundColor: c.card, borderRadius: 16, borderWidth: 1, borderColor: c.cardBorder },
-    emptyTitle: { fontSize: 17, fontWeight: '600', color: c.text, marginTop: 16, marginBottom: 6 },
-    emptyText: { fontSize: 13, color: c.textSecondary, textAlign: 'center', maxWidth: 320, lineHeight: 20 },
+    heroLeft: {
+      flex: isNative ? 0 : 1,
+      alignItems: isNative ? 'center' : ('flex-start' as const),
+      justifyContent: 'center',
+      gap: 4,
+    },
+    heroTitle: {
+      fontSize: isNative ? 44 : 60,
+      lineHeight: isNative ? 50 : 66,
+      letterSpacing: -0.5,
+      fontFamily: 'PlayfairDisplay_700Bold',
+      textAlign: isNative ? 'center' : ('left' as const),
+    },
+    heroSub: {
+      textAlign: isNative ? 'center' : ('left' as const),
+      fontFamily: 'Jost_400Regular',
+    },
+    heroBubbles: {
+      flexDirection: 'row',
+      gap: 14,
+      flexShrink: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    heroRight: {
+      flex: isNative ? 0 : 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: isNative ? 'center' : ('flex-end' as const),
+      gap: 8,
+      marginTop: isNative ? 4 : 0,
+    },
+    heroBubble: {
+      borderWidth: 2,
+      backgroundColor: c.white,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative' as const,
+    },
+    heroBubbleFill: {
+      position: 'absolute' as const,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      opacity: 0.12,
+    },
+    heroBubbleInner: {
+      alignItems: 'center',
+      gap: 0,
+    },
+    heroBubbleLabel: {
+      fontSize: 9,
+      fontFamily: 'Jost_500Medium',
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+    },
+    heroBubbleValue: {
+      fontSize: isNative ? 20 : 24,
+      fontFamily: 'Jost_400Regular',
+      color: c.text,
+      letterSpacing: -0.5,
+    },
+    monthSection: { marginBottom: 20 },
+    yearChip: {
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+      backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder,
+    },
+    yearChipActive: { borderColor: c.primary, backgroundColor: c.white },
+    yearChipHover: { borderColor: c.textSecondary, transform: [{ translateY: -1 }] },
+    yearChipText: { color: c.textSecondary, fontFamily: 'Jost_500Medium', letterSpacing: 0.3 },
+    yearChipTextActive: { color: c.primary, fontFamily: 'Jost_700Bold' },
+    monthGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: isNative ? 12 : 14,
+      marginBottom: 20,
+      justifyContent: isNative ? 'center' : ('center' as const),
+    },
+    monthCardWrap: { width: isNative ? '100%' : '23.5%', minWidth: isNative ? undefined : 200 },
+    monthCardWrapHovered: { transform: [{ translateY: -4 }] },
+    monthCard: { borderRadius: 12, minHeight: isNative ? 140 : 170 },
+    monthCardActive: { borderColor: c.primaryLight },
+    monthCardSelected: { borderColor: c.primary, borderWidth: 1.5 },
+    monthCardHovered: {
+      borderColor: c.primary,
+      shadowColor: c.primary,
+      shadowOpacity: 0.14,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    monthLabel: { fontSize: 22, lineHeight: 26, letterSpacing: 0.5, marginBottom: 8, fontFamily: 'Jost_700Bold' },
+    monthBody: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1,
+    },
+    monthLeft: { flex: 1, minWidth: 0, marginRight: 10 },
+    monthSpend: { letterSpacing: -0.3, marginBottom: 2, fontSize: isNative ? 20 : 24, fontFamily: 'Jost_400Regular' },
+    monthCircle: {
+      borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', position: 'relative' as const,
+    },
+    monthCircleActive: { borderColor: c.primary, backgroundColor: c.white },
+    monthCircleEmpty: { borderColor: c.cardBorder, backgroundColor: c.inputBg },
+    monthCircleFill: {
+      position: 'absolute' as const, left: 0, right: 0, bottom: 0,
+      backgroundColor: c.primary, opacity: 0.18,
+    },
+    monthCircleContent: { alignItems: 'center', justifyContent: 'center' },
+    monthCircleValue: { fontSize: 16, fontFamily: 'Jost_700Bold', color: c.primary, letterSpacing: -0.2 },
+    monthCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 10 },
+    monthCtaText: { color: c.primary, fontFamily: 'Jost_500Medium' },
+    pressDown: { transform: [{ scale: 0.97 }] },
+    emptyState: { alignItems: 'center', padding: 48, backgroundColor: c.card, borderRadius: 12, borderWidth: 1, borderColor: c.cardBorder },
+    emptyTitle: { fontSize: 17, fontFamily: 'Jost_500Medium', color: c.text, marginTop: 16, marginBottom: 6 },
+    emptyText: { fontSize: 13, fontFamily: 'Jost_400Regular', color: c.textSecondary, textAlign: 'center', maxWidth: 320, lineHeight: 20 },
   });
 }

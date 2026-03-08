@@ -1,0 +1,20 @@
+vendor_name,amount,transaction_date,description
+AWS Cloud Services,4405.53,2025-09-01,Cloud infrastructure & compute
+AWS Cloud Services,395.8,2025-09-01,Data transfer & bandwidth
+Salesforce,1604.53,2025-09-03,CRM platform - Enterprise licenses
+TWILIO COMMUNICATIONS,1266.19,2025-09-05,Voice & SMS API usage
+HubSpot,803.28,2025-09-02,Marketing Hub Professional
+Datadog,594.47,2025-09-04,Infrastructure monitoring
+Zendesk,380.54,2025-09-06,Customer support platform
+Slack Technologies,201.37,2025-09-01,Business+ plan
+Zoom,146.97,2025-09-01,Business plan - 50 hosts
+Figma,89.61,2025-09-07,Organization plan
+GitHub,146.01,2025-09-10,Team plan - 25 seats
+Notion Labs,81.06,2025-09-08,Team plan
+Adobe Creative Cloud,294.04,2025-09-12,All Apps plan - 10 licenses
+Asana,117.09,2025-09-09,Business tier
+Mailchimp,96.44,2025-09-05,Standard plan - email marketing
+Intercom,186.14,2025-09-11,Support & engagement platform
+Stripe,109.2,2025-09-23,Payment processing fees
+Cloudflare,64.18,2025-09-03,Pro plan + Workers
+Amplitude,488.98,2025-09-14,Growth plan - product analytics
