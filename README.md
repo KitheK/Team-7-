@@ -1,5 +1,4 @@
-# Alfred
-# Financial Intelligence for SMEs
+# Alfred : Financial Intelligence for SMEs
 
 Alfred is a financial analytics tool built for small and medium-sized businesses. It helps you spot wasteful spending, track subscriptions, and negotiate better deals with vendors, all from one place.
 
