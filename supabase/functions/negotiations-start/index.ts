@@ -223,6 +223,22 @@ Respond with ONLY the JSON object.`;
       script = { full_script: rawContent };
     }
 
+    // Bland requires task to be a string. Build from full_script or concatenate sections.
+    const scriptSections = [
+      script.opening,
+      script.price_request,
+      script.objection_fixed_pricing,
+      script.objection_manager_approval,
+      script.closing,
+    ].filter(Boolean);
+    const taskString =
+      (typeof script.full_script === "string" && script.full_script.trim()
+        ? script.full_script
+        : null) ??
+      (scriptSections.length > 0 ? scriptSections.join("\n\n") : null) ??
+      (typeof rawContent === "string" && !rawContent.trim().startsWith("{") ? rawContent : null) ??
+      "You are calling on behalf of the client to discuss pricing. Be professional and state the target discount. Ask for a callback if needed.";
+
     // Submit call via the selected voice provider
     const webhookUrl = `${WEBHOOK_BASE_URL}/negotiations-webhook`;
 
@@ -291,7 +307,7 @@ Respond with ONLY the JSON object.`;
         },
         body: JSON.stringify({
           phone_number: vendor_phone,
-          task: script.full_script ?? rawContent,
+          task: taskString,
           webhook: webhookUrl,
           interruption_threshold: 100,
           metadata: { negotiation_id },

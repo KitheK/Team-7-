@@ -28,8 +28,9 @@ export default function AlertsContent() {
   const cs = useMemo(() => getContentStyles(c), [c]);
   const s = useMemo(() => createStyles(c), [c]);
 
-  const { activeWorkspaceTransactions, activeWorkspaceId } = useWorkspace();
+  const { activeWorkspaceTransactions, activeWorkspaceId, workspaces } = useWorkspace();
   const { subscriptions, priceCreepSignals, isEmpty } = useWorkspaceData(activeWorkspaceTransactions);
+  const resolvedWorkspaceId = activeWorkspaceId === 'all' ? (workspaces[0]?.id ?? null) : activeWorkspaceId;
 
   const duplicates = useMemo(() => subscriptions.filter(sub => sub.isDuplicate).sort((a, b) => b.totalAmount - a.totalAmount), [subscriptions]);
   const annualSavings = useMemo(() => duplicates.reduce((sum, d) => sum + d.totalAmount * 12, 0), [duplicates]);
@@ -187,7 +188,12 @@ export default function AlertsContent() {
         </View>
       )}
 
-      <ScheduleAICallModal visible={callModalVisible} onClose={() => setCallModalVisible(false)} vendorName={callVendor} />
+      <ScheduleAICallModal
+        visible={callModalVisible}
+        onClose={() => setCallModalVisible(false)}
+        vendorName={callVendor}
+        workspaceId={resolvedWorkspaceId}
+      />
     </>
   );
 }
