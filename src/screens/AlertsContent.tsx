@@ -7,19 +7,9 @@ import Typography from '../components/ui/Typography';
 import WorkspaceEmptyState from '../components/WorkspaceEmptyState';
 import ScheduleAICallModal from '../components/ScheduleAICallModal';
 import { useWorkspace } from '../context/WorkspaceContext';
-import { useWorkspaceData } from '../hooks/useWorkspaceData';
+import type { Opportunity } from '../types/opportunity';
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
-
-type AlertRow = {
-  vendor: string;
-  amount: number;
-  count: number;
-  message: string;
-  category: string;
-  isDuplicate: boolean;
-  isPriceCreep: boolean;
-};
 
 function RewardFlash({ active, color }: { active: boolean; color: string }) {
   const scale = useRef(new Animated.Value(0)).current;
@@ -53,140 +43,147 @@ export default function AlertsContent() {
   const [callModalVisible, setCallModalVisible] = useState(false);
   const [callVendor, setCallVendor] = useState('');
   const [callAnnualSpend, setCallAnnualSpend] = useState<number | undefined>(undefined);
-  const [securedVendors, setSecuredVendors] = useState<string[]>([]);
-  const [startedCallVendors, setStartedCallVendors] = useState<string[]>([]);
   const [hoveredVendor, setHoveredVendor] = useState<string | null>(null);
   const [justSecured, setJustSecured] = useState<string | null>(null);
   const c = useColors();
   const cs = useMemo(() => getContentStyles(c), [c]);
   const s = useMemo(() => createStyles(c), [c]);
 
-  const { activeWorkspaceTransactions, activeWorkspaceId, workspaces } = useWorkspace();
-  const { subscriptions, priceCreepSignals, isEmpty } = useWorkspaceData(activeWorkspaceTransactions);
+  const {
+    activeWorkspaceId,
+    workspaces,
+    opportunities,
+    opportunitySummary,
+    updateOpportunityStatus,
+    refreshAnalytics,
+  } = useWorkspace();
+
   const resolvedWorkspaceId = activeWorkspaceId === 'all' ? (workspaces[0]?.id ?? null) : activeWorkspaceId;
 
-  const duplicates = useMemo(() => subscriptions.filter(sub => sub.isDuplicate).sort((a, b) => b.totalAmount - a.totalAmount), [subscriptions]);
-  const alerts = useMemo(() => {
-    const byVendor = new Map<string, AlertRow>();
-    for (const d of duplicates) {
-      byVendor.set(d.vendor, {
-        vendor: d.vendor, amount: d.totalAmount, count: d.count,
-        message: `Charged ${d.count} times this period`,
-        category: d.category, isDuplicate: true, isPriceCreep: false,
-      });
-    }
-    for (const p of priceCreepSignals) {
-      const existing = byVendor.get(p.vendor);
-      if (existing) {
-        existing.isPriceCreep = true;
-        existing.message += p.message ? ` · ${p.message}` : '';
-      } else {
-        byVendor.set(p.vendor, {
-          vendor: p.vendor, amount: p.totalAmount, count: p.count,
-          message: p.message, category: 'Other', isDuplicate: false, isPriceCreep: true,
-        });
-      }
-    }
-    return Array.from(byVendor.values()).sort((a, b) => b.amount - a.amount);
-  }, [duplicates, priceCreepSignals]);
-
   const cancellationQueue = useMemo(
-    () => duplicates.map(item => ({
-      vendor: item.vendor, category: item.category,
-      monthlySpend: item.totalAmount, annualImpact: item.totalAmount * 12, count: item.count,
-    })),
-    [duplicates]
+    () => opportunities.filter(o => o.type === 'email_cancellation')
+      .sort((a, b) => {
+        const aResolved = a.status === 'resolved' ? 1 : 0;
+        const bResolved = b.status === 'resolved' ? 1 : 0;
+        return aResolved - bResolved || b.estimated_annual_savings - a.estimated_annual_savings;
+      }),
+    [opportunities]
   );
+
   const negotiationQueue = useMemo(
-    () => alerts.filter(a => a.isPriceCreep).map(a => {
-      const annualSpend = a.amount * 12;
-      return { vendor: a.vendor, category: a.category, annualSpend, possibleSavings: Math.round(annualSpend * 0.15), message: a.message };
-    }),
-    [alerts]
+    () => opportunities.filter(o => o.type === 'ai_negotiation')
+      .sort((a, b) => {
+        const aDone = ['ai_call_started', 'ai_call_completed', 'resolved'].includes(a.status) ? 1 : 0;
+        const bDone = ['ai_call_started', 'ai_call_completed', 'resolved'].includes(b.status) ? 1 : 0;
+        return aDone - bDone || b.estimated_annual_savings - a.estimated_annual_savings;
+      }),
+    [opportunities]
   );
 
   const totalCancellable = useMemo(
-    () => cancellationQueue.reduce((sum, i) => sum + i.annualImpact, 0),
+    () => cancellationQueue.reduce((sum, o) => sum + o.estimated_annual_savings, 0),
     [cancellationQueue]
   );
-  const securedSavings = useMemo(
-    () => cancellationQueue.filter(i => securedVendors.includes(i.vendor)).reduce((sum, i) => sum + i.annualImpact, 0),
-    [cancellationQueue, securedVendors]
+  const securedCancelSavings = useMemo(
+    () => cancellationQueue.filter(o => o.status === 'resolved').reduce((sum, o) => sum + o.secured_annual_savings, 0),
+    [cancellationQueue]
   );
   const totalNegotiable = useMemo(
-    () => negotiationQueue.reduce((sum, i) => sum + i.possibleSavings, 0),
+    () => negotiationQueue.reduce((sum, o) => sum + o.estimated_annual_savings, 0),
     [negotiationQueue]
   );
   const negotiatedSavings = useMemo(
-    () => negotiationQueue.filter(i => startedCallVendors.includes(i.vendor)).reduce((sum, i) => sum + i.possibleSavings, 0),
-    [negotiationQueue, startedCallVendors]
+    () => negotiationQueue.filter(o => o.status === 'resolved').reduce((sum, o) => sum + o.secured_annual_savings, 0),
+    [negotiationQueue]
   );
 
-  const cancelProgress = totalCancellable > 0 ? securedSavings / totalCancellable : 0;
+  const cancelProgress = totalCancellable > 0 ? securedCancelSavings / totalCancellable : 0;
   const negotiateProgress = totalNegotiable > 0 ? negotiatedSavings / totalNegotiable : 0;
 
-  const sortedCancellations = useMemo(
-    () => [...cancellationQueue].sort((a, b) => {
-      const aDone = securedVendors.includes(a.vendor) ? 1 : 0;
-      const bDone = securedVendors.includes(b.vendor) ? 1 : 0;
-      return aDone - bDone || b.annualImpact - a.annualImpact;
-    }),
-    [cancellationQueue, securedVendors]
-  );
-  const sortedNegotiations = useMemo(
-    () => [...negotiationQueue].sort((a, b) => {
-      const aDone = startedCallVendors.includes(a.vendor) ? 1 : 0;
-      const bDone = startedCallVendors.includes(b.vendor) ? 1 : 0;
-      return aDone - bDone || b.possibleSavings - a.possibleSavings;
-    }),
-    [negotiationQueue, startedCallVendors]
-  );
+  const hasOpportunities = cancellationQueue.length > 0 || negotiationQueue.length > 0;
 
-  if (isEmpty) {
+  if (!hasOpportunities && opportunities.length === 0) {
     return (
       <>
         <Typography variant="display">Savings</Typography>
         <Typography variant="body" tone="secondary" style={{ marginBottom: 20, maxWidth: 540 }}>
-          We flag duplicates and price increases — cancel or negotiate to lock in savings.
+          Upload spending data and refresh analytics to discover savings opportunities.
         </Typography>
+        <Pressable
+          onPress={refreshAnalytics}
+          style={({ pressed }) => [s.refreshBtn, pressed && s.pressDown]}
+        >
+          <Feather name="refresh-cw" size={14} color={c.white} />
+          <Text style={s.refreshBtnText}>Refresh analytics</Text>
+        </Pressable>
         <WorkspaceEmptyState activeWorkspaceId={activeWorkspaceId} />
       </>
     );
   }
 
-  const handleDraftEmail = (vendor: string, amount: number) => {
-    const body = `Subject: Account review — ${vendor}\n\nHi,\n\nI'd like to review charges for ${vendor}. I noticed spend totaling $${amount.toLocaleString()} and want to discuss adjustments or consolidation.\n\nPlease let me know a convenient time for a call.\n\nBest regards`;
+  const handleDraftEmail = async (opp: Opportunity) => {
+    const body = `Subject: Account review — ${opp.vendor_name}\n\nHi,\n\nI'd like to review charges for ${opp.vendor_name}. I noticed spend totaling $${Math.round(opp.annualized_spend).toLocaleString()}/yr and want to discuss adjustments or cancellation.\n\nPlease let me know a convenient time for a call.\n\nBest regards`;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(body);
       Alert.alert('Copied', 'Email draft copied to clipboard.');
     } else {
       Linking.openURL(`mailto:?body=${encodeURIComponent(body)}`);
     }
-  };
-
-  const handleMarkSecured = (vendor: string) => {
-    if (!securedVendors.includes(vendor)) {
-      setSecuredVendors(prev => [...prev, vendor]);
-      setJustSecured(vendor);
-      setTimeout(() => setJustSecured(null), 600);
+    if (opp.status === 'recommended' || opp.status === 'detected') {
+      await updateOpportunityStatus(opp.id, 'email_drafted');
     }
   };
 
-  const handleScheduleCall = (vendor: string, annualSpend?: number) => {
-    setCallVendor(vendor);
-    setCallAnnualSpend(annualSpend);
+  const handleMarkSecured = async (opp: Opportunity) => {
+    await updateOpportunityStatus(opp.id, 'resolved', opp.estimated_annual_savings);
+    setJustSecured(opp.id);
+    setTimeout(() => setJustSecured(null), 600);
+  };
+
+  const handleScheduleCall = (opp: Opportunity) => {
+    setCallVendor(opp.vendor_name);
+    setCallAnnualSpend(opp.annualized_spend);
     setCallModalVisible(true);
+  };
+
+  const isResolved = (o: Opportunity) => o.status === 'resolved';
+  const isCallStarted = (o: Opportunity) =>
+    ['ai_call_started', 'ai_call_completed', 'resolved'].includes(o.status);
+
+  const statusLabel = (o: Opportunity): string => {
+    switch (o.status) {
+      case 'email_drafted': return 'Email drafted';
+      case 'email_sent': return 'Email sent';
+      case 'resolved': return 'Secured';
+      default: return '';
+    }
   };
 
   const CIRCLE = isNative ? 120 : 140;
 
   return (
     <>
-      {alerts.length === 0 ? (
+      <View style={s.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Typography variant="display">Savings</Typography>
+          <Typography variant="body" tone="secondary" style={{ maxWidth: 540 }}>
+            We flag duplicates and price increases — cancel or negotiate to lock in savings.
+          </Typography>
+        </View>
+        <Pressable
+          onPress={refreshAnalytics}
+          style={({ pressed }) => [s.refreshBtn, pressed && s.pressDown]}
+        >
+          <Feather name="refresh-cw" size={14} color={c.white} />
+          <Text style={s.refreshBtnText}>Refresh</Text>
+        </Pressable>
+      </View>
+
+      {!hasOpportunities ? (
         <View style={s.allClear}>
           <Feather name="check-circle" size={36} color={c.success} />
           <Text style={s.allClearTitle}>All clear!</Text>
-          <Text style={s.allClearText}>No duplicate or price issues in this period.</Text>
+          <Text style={s.allClearText}>No savings opportunities detected yet.</Text>
         </View>
       ) : (
         <View style={s.columnsWrap}>
@@ -198,8 +195,8 @@ export default function AlertsContent() {
                   <View style={[s.colCircleFill, { height: `${Math.max(8, cancelProgress * 100)}%`, backgroundColor: c.success }]} />
                   <View style={s.colCircleInner}>
                     <Text style={[s.colCircleLabel, { color: c.success }]}>SECURED</Text>
-                    <Text style={s.colCircleValue}>${securedSavings.toLocaleString()}</Text>
-                    <Text style={s.colCircleCaption}>of ${totalCancellable.toLocaleString()}</Text>
+                    <Text style={s.colCircleValue}>${Math.round(securedCancelSavings).toLocaleString()}</Text>
+                    <Text style={s.colCircleCaption}>of ${Math.round(totalCancellable).toLocaleString()}</Text>
                   </View>
                   <RewardFlash active={justSecured !== null} color={c.success} />
                 </View>
@@ -212,32 +209,35 @@ export default function AlertsContent() {
                 </View>
               </View>
 
-              {sortedCancellations.map(item => {
-                const isSecured = securedVendors.includes(item.vendor);
-                const isHovered = hoveredVendor === `cancel-${item.vendor}`;
+              {cancellationQueue.map(opp => {
+                const done = isResolved(opp);
+                const isHovered = hoveredVendor === `cancel-${opp.id}`;
                 return (
                   <View
-                    key={item.vendor}
-                    style={[s.vendorRow, isSecured && s.vendorRowDone]}
+                    key={opp.id}
+                    style={[s.vendorRow, done && s.vendorRowDone]}
                   >
                     <View style={s.vendorTop}>
                       <View style={s.vendorInfo}>
-                        <Text style={[s.vendorName, isSecured && { opacity: 0.5 }]}>{item.vendor}</Text>
-                        <Text style={s.vendorMeta}>{item.category} · {item.count} charges</Text>
+                        <Text style={[s.vendorName, done && { opacity: 0.5 }]}>{opp.vendor_name}</Text>
+                        <Text style={s.vendorMeta} numberOfLines={2}>{opp.explanation}</Text>
                       </View>
                       <View style={s.vendorSavings}>
-                        <Text style={[s.vendorSavingsValue, isSecured && { color: c.success }]}>
-                          ${item.annualImpact.toLocaleString()}
+                        <Text style={[s.vendorSavingsValue, done && { color: c.success }]}>
+                          ${Math.round(opp.estimated_annual_savings).toLocaleString()}
                         </Text>
-                        <Text style={s.vendorSavingsSub}>{isSecured ? 'secured / yr' : 'save / yr'}</Text>
+                        <Text style={s.vendorSavingsSub}>{done ? 'secured / yr' : 'save / yr'}</Text>
                       </View>
                     </View>
+                    {statusLabel(opp) && !done ? (
+                      <Text style={s.vendorStatus}>{statusLabel(opp)}</Text>
+                    ) : null}
                     <View style={s.vendorActions}>
-                      {!isSecured && (
+                      {!done && (
                         <Pressable
-                          onHoverIn={() => setHoveredVendor(`cancel-${item.vendor}`)}
+                          onHoverIn={() => setHoveredVendor(`cancel-${opp.id}`)}
                           onHoverOut={() => setHoveredVendor(null)}
-                          onPress={() => handleDraftEmail(item.vendor, item.monthlySpend)}
+                          onPress={() => handleDraftEmail(opp)}
                           style={({ pressed }) => [
                             s.btnOutline,
                             isHovered && s.btnOutlineHover,
@@ -249,15 +249,15 @@ export default function AlertsContent() {
                         </Pressable>
                       )}
                       <Pressable
-                        onPress={() => handleMarkSecured(item.vendor)}
+                        onPress={() => handleMarkSecured(opp)}
                         style={({ pressed }) => [
-                          isSecured ? s.btnDone : s.btnPrimary,
+                          done ? s.btnDone : s.btnPrimary,
                           pressed && s.pressDown,
                         ]}
                       >
-                        <Feather name={isSecured ? 'check' : 'check-circle'} size={13} color={isSecured ? c.success : c.white} />
-                        <Text style={isSecured ? s.btnDoneText : s.btnPrimaryText}>
-                          {isSecured ? 'Secured' : 'Mark as done'}
+                        <Feather name={done ? 'check' : 'check-circle'} size={13} color={done ? c.success : c.white} />
+                        <Text style={done ? s.btnDoneText : s.btnPrimaryText}>
+                          {done ? 'Secured' : 'Mark as done'}
                         </Text>
                       </Pressable>
                     </View>
@@ -275,8 +275,8 @@ export default function AlertsContent() {
                   <View style={[s.colCircleFill, { height: `${Math.max(8, negotiateProgress * 100)}%`, backgroundColor: c.primary }]} />
                   <View style={s.colCircleInner}>
                     <Text style={[s.colCircleLabel, { color: c.primary }]}>POTENTIAL</Text>
-                    <Text style={s.colCircleValue}>${negotiatedSavings.toLocaleString()}</Text>
-                    <Text style={s.colCircleCaption}>of ${totalNegotiable.toLocaleString()}</Text>
+                    <Text style={s.colCircleValue}>${Math.round(negotiatedSavings).toLocaleString()}</Text>
+                    <Text style={s.colCircleCaption}>of ${Math.round(totalNegotiable).toLocaleString()}</Text>
                   </View>
                 </View>
                 <View style={s.colHeaderCopy}>
@@ -288,40 +288,43 @@ export default function AlertsContent() {
                 </View>
               </View>
 
-              {sortedNegotiations.map(item => {
-                const isStarted = startedCallVendors.includes(item.vendor);
-                const isHovered = hoveredVendor === `negotiate-${item.vendor}`;
+              {negotiationQueue.map(opp => {
+                const started = isCallStarted(opp);
+                const done = isResolved(opp);
+                const isHovered = hoveredVendor === `negotiate-${opp.id}`;
                 return (
                   <View
-                    key={item.vendor}
-                    style={[s.vendorRow, isStarted && s.vendorRowStarted]}
+                    key={opp.id}
+                    style={[s.vendorRow, started && s.vendorRowStarted]}
                   >
                     <View style={s.vendorTop}>
                       <View style={s.vendorInfo}>
-                        <Text style={[s.vendorName, isStarted && { opacity: 0.5 }]}>{item.vendor}</Text>
-                        <Text style={s.vendorMeta} numberOfLines={1}>{item.message}</Text>
+                        <Text style={[s.vendorName, started && { opacity: 0.5 }]}>{opp.vendor_name}</Text>
+                        <Text style={s.vendorMeta} numberOfLines={2}>{opp.explanation}</Text>
                       </View>
                       <View style={s.vendorSavings}>
                         <Text style={[s.vendorSavingsValue, { color: c.primary }]}>
-                          ${item.possibleSavings.toLocaleString()}
+                          ${Math.round(opp.estimated_annual_savings).toLocaleString()}
                         </Text>
-                        <Text style={s.vendorSavingsSub}>{isStarted ? 'in progress' : 'possible / yr'}</Text>
+                        <Text style={s.vendorSavingsSub}>
+                          {done ? 'secured / yr' : started ? 'in progress' : 'possible / yr'}
+                        </Text>
                       </View>
                     </View>
                     <View style={s.vendorActions}>
                       <Pressable
-                        onHoverIn={() => setHoveredVendor(`negotiate-${item.vendor}`)}
+                        onHoverIn={() => setHoveredVendor(`negotiate-${opp.id}`)}
                         onHoverOut={() => setHoveredVendor(null)}
-                        onPress={() => handleScheduleCall(item.vendor, item.annualSpend)}
+                        onPress={() => handleScheduleCall(opp)}
                         style={({ pressed }) => [
-                          isStarted ? s.btnStarted : s.btnAccent,
-                          isHovered && !isStarted && s.btnAccentHover,
+                          started ? s.btnStarted : s.btnAccent,
+                          isHovered && !started && s.btnAccentHover,
                           pressed && s.pressDown,
                         ]}
                       >
-                        <Feather name={isStarted ? 'loader' : 'radio'} size={13} color={isStarted ? c.primary : c.white} />
-                        <Text style={isStarted ? s.btnStartedText : s.btnAccentText}>
-                          {isStarted ? 'Call started' : 'Start AI call'}
+                        <Feather name={started ? 'loader' : 'radio'} size={13} color={started ? c.primary : c.white} />
+                        <Text style={started ? s.btnStartedText : s.btnAccentText}>
+                          {started ? 'Call started' : 'Start AI call'}
                         </Text>
                       </Pressable>
                     </View>
@@ -340,7 +343,10 @@ export default function AlertsContent() {
         workspaceId={resolvedWorkspaceId}
         annualSpend={callAnnualSpend}
         onCallStarted={async () => {
-          setStartedCallVendors(prev => (prev.includes(callVendor) ? prev : [...prev, callVendor]));
+          const opp = opportunities.find(o => o.vendor_name === callVendor);
+          if (opp) {
+            await updateOpportunityStatus(opp.id, 'ai_call_started');
+          }
         }}
       />
     </>
@@ -349,6 +355,27 @@ export default function AlertsContent() {
 
 function createStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+      gap: 12,
+    },
+    refreshBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: c.text,
+    },
+    refreshBtnText: {
+      fontSize: 13,
+      fontFamily: 'Jost_500Medium',
+      color: c.white,
+    },
     columnsWrap: {
       flexDirection: isNative ? 'column' : 'row',
       gap: 20,
@@ -453,6 +480,13 @@ function createStyles(c: ReturnType<typeof useColors>) {
     vendorMeta: {
       fontSize: 12,
       color: c.textSecondary,
+      lineHeight: 17,
+    },
+    vendorStatus: {
+      fontSize: 11,
+      fontFamily: 'Jost_500Medium',
+      color: c.textSecondary,
+      paddingLeft: 2,
     },
     vendorSavings: {
       alignItems: 'flex-end',

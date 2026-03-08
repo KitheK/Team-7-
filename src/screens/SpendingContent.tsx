@@ -26,7 +26,7 @@ export default function SpendingContent() {
   const c = useColors();
   const s = useMemo(() => createStyles(c), [c]);
 
-  const { activeWorkspaceTransactions, activeWorkspaceId, uploadBatches, uploadCsv, deleteBatch } = useWorkspace();
+  const { activeWorkspaceTransactions, activeWorkspaceId, uploadBatches, uploadCsv, deleteBatch, refreshAnalytics } = useWorkspace();
   const { totalAmount, byCategory, vendorAnalytics, byVendorChart, subscriptionCount, isEmpty } = useWorkspaceData(activeWorkspaceTransactions);
 
   const hasUploads = uploadBatches.length > 0;
@@ -44,7 +44,10 @@ export default function SpendingContent() {
         inserted: rows.length - parseRejected,
         rejected: parseRejected,
       });
-      if (batch) setUploadExpanded(false);
+      if (batch) {
+        setUploadExpanded(false);
+        refreshAnalytics();
+      }
     } finally {
       setUploading(false);
     }
@@ -53,6 +56,7 @@ export default function SpendingContent() {
   const handleDeleteBatch = async (batchId: string) => {
     await deleteBatch(batchId);
     setLastAnalysis(null);
+    refreshAnalytics();
   };
 
   if (!activeWorkspaceId || activeWorkspaceId === 'all') {

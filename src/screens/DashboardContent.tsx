@@ -25,6 +25,7 @@ export default function DashboardContent({ onOpenMonth }: Props) {
     setActiveWorkspaceId,
     createWorkspace,
     workspaces,
+    opportunitySummary,
   } = useWorkspace();
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -37,7 +38,7 @@ export default function DashboardContent({ onOpenMonth }: Props) {
     [workspaces, selectedYear]
   );
   const annualTrackedSpend = selectedYearWorkspaces.reduce((sum, workspace) => sum + Number(workspace.total_saved ?? 0), 0);
-  const annualSaved = 0;
+  const annualSaved = opportunitySummary.securedSavings;
   const activeMonthCount = selectedYearWorkspaces.length;
 
   const monthCards = useMemo(

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import type { Opportunity, OpportunitySummary, OpportunityStatus } from '../types/opportunity';
+import { EMPTY_SUMMARY } from '../types/opportunity';
 
 export type Workspace = {
   id: string;
@@ -99,6 +101,11 @@ type WorkspaceContextValue = {
   uploadCsv: (workspaceId: string, csvText: string, fileName: string, parsedRows: TransactionRow[]) => Promise<UploadBatch | null>;
   deleteBatch: (batchId: string) => Promise<void>;
   refreshUploadBatches: () => Promise<void>;
+  opportunities: Opportunity[];
+  opportunitySummary: OpportunitySummary;
+  refreshAnalytics: () => Promise<void>;
+  refreshOpportunities: () => Promise<void>;
+  updateOpportunityStatus: (id: string, status: OpportunityStatus, securedSavings?: number) => Promise<void>;
   isDemoMode: boolean;
 };
 
@@ -365,6 +372,81 @@ export function WorkspaceProvider({
     if (isDemoMode) refreshActiveTransactions();
   }, [isDemoMode, demoTransactions, refreshActiveTransactions]);
 
+  // ──── Opportunities ────
+
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary>(EMPTY_SUMMARY);
+
+  const refreshOpportunities = useCallback(async () => {
+    if (isDemoMode || !supabase || !userId) {
+      setOpportunities([]);
+      setOpportunitySummary(EMPTY_SUMMARY);
+      return;
+    }
+    const { data } = await supabase
+      .from('opportunities')
+      .select('*')
+      .eq('user_id', userId)
+      .neq('status', 'dismissed')
+      .order('annualized_spend', { ascending: false });
+    setOpportunities((data as Opportunity[]) ?? []);
+
+    const { data: summary } = await supabase.rpc('get_opportunity_summary', { p_user_id: userId });
+    if (summary) {
+      setOpportunitySummary(summary as OpportunitySummary);
+    }
+  }, [isDemoMode, userId]);
+
+  const refreshAnalytics = useCallback(async () => {
+    if (isDemoMode || !supabase || !userId) return;
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!token) return;
+
+    const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    if (!baseUrl) return;
+    const url = `${baseUrl}/functions/v1/refresh-analytics`;
+
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      });
+    } catch (e) {
+      console.warn('refresh-analytics call failed:', e);
+    }
+
+    await refreshOpportunities();
+  }, [isDemoMode, userId, refreshOpportunities]);
+
+  const updateOpportunityStatus = useCallback(async (
+    id: string,
+    status: OpportunityStatus,
+    securedSavings?: number,
+  ) => {
+    if (isDemoMode || !supabase) return;
+    const update: Record<string, any> = { status };
+    if (securedSavings !== undefined) {
+      update.secured_annual_savings = securedSavings;
+    }
+    if (status === 'resolved') {
+      update.resolved_at = new Date().toISOString();
+    }
+    if (['email_drafted', 'email_sent', 'ai_call_started'].includes(status)) {
+      update.action_taken_at = new Date().toISOString();
+    }
+    await supabase.from('opportunities').update(update).eq('id', id);
+    await refreshOpportunities();
+  }, [isDemoMode, refreshOpportunities]);
+
+  useEffect(() => {
+    refreshOpportunities();
+  }, [userId, refreshOpportunities]);
+
   const activeWorkspace = activeWorkspaceId && activeWorkspaceId !== OVERVIEW_ID
     ? workspaces.find(w => w.id === activeWorkspaceId) ?? null
     : null;
@@ -396,6 +478,11 @@ export function WorkspaceProvider({
         uploadCsv,
         deleteBatch,
         refreshUploadBatches,
+        opportunities,
+        opportunitySummary,
+        refreshAnalytics,
+        refreshOpportunities,
+        updateOpportunityStatus,
         isDemoMode,
       }}
     >
