@@ -42,10 +42,19 @@ export default function TopBar({
         <View style={styles.nativeBrand}>
           <Typography variant="title" style={styles.brandName}>Alfred</Typography>
         </View>
-        <Pressable onPress={onMonthPress} style={styles.nativeMonthBtn}>
-          <Feather name="calendar" size={14} color={t.colors.primary} />
-          <Typography variant="caption" style={styles.nativeMonthText}>{monthLabel}</Typography>
-        </Pressable>
+        <View style={styles.nativeRight}>
+          <Pressable onPress={onMonthPress} style={styles.nativeMonthBtn}>
+            <Feather name="calendar" size={14} color={t.colors.primary} />
+            <Typography variant="caption" style={styles.nativeMonthText} numberOfLines={1}>
+              {monthLabel}
+            </Typography>
+          </Pressable>
+          {onLogout && (
+            <Pressable onPress={onLogout} style={styles.nativeIconBtn} hitSlop={8}>
+              <Feather name="log-out" size={18} color={t.colors.textSecondary} />
+            </Pressable>
+          )}
+        </View>
       </View>
     );
   }
@@ -146,21 +155,36 @@ const styles = StyleSheet.create({
   nativeBrand: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginTop: 6,
+  },
+  nativeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 0,
   },
   nativeMonthBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
     backgroundColor: t.colors.white,
     borderWidth: 1,
     borderColor: t.colors.border,
+    maxWidth: 140,
   },
   nativeMonthText: {
     color: t.colors.text,
     fontFamily: 'Jost_500Medium',
+  },
+  nativeIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bar: {
     height: 64,

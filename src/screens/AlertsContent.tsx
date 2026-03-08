@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Linking, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Linking, Animated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
 import { getContentStyles } from '../constants/contentStyles';
@@ -10,6 +10,25 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
+function buildCancellationEmailBody(
+  companyOrService: string,
+  category: string,
+  monthlyAmount: number,
+  chargeCount: number
+): string {
+  const period = chargeCount > 1 ? ` (${chargeCount} charges in this period)` : '';
+  return `Hello,
+
+I am writing to request cancellation of my ${companyOrService} subscription${period}.
+
+${category ? `This is for the ${category} plan. ` : ''}${monthlyAmount > 0 ? `My current plan is billed at $${monthlyAmount.toLocaleString()}/month. ` : ''}I would like to cancel effective at the end of my current billing period (or as soon as your process allows).
+
+Please confirm once the cancellation has been processed and let me know if any further steps are required on my side.
+
+Thank you,
+[Your name]`;
+}
 
 type AlertRow = {
   vendor: string;
@@ -154,14 +173,11 @@ export default function AlertsContent() {
     );
   }
 
-  const handleDraftEmail = (vendor: string, amount: number) => {
-    const body = `Subject: Account review — ${vendor}\n\nHi,\n\nI'd like to review charges for ${vendor}. I noticed spend totaling $${amount.toLocaleString()} and want to discuss adjustments or consolidation.\n\nPlease let me know a convenient time for a call.\n\nBest regards`;
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(body);
-      Alert.alert('Copied', 'Email draft copied to clipboard.');
-    } else {
-      Linking.openURL(`mailto:?body=${encodeURIComponent(body)}`);
-    }
+  const handleDraftEmail = (item: { vendor: string; category: string; monthlySpend: number; count: number }) => {
+    const subject = `Request to cancel my ${item.vendor} subscription`;
+    const body = buildCancellationEmailBody(item.vendor, item.category, item.monthlySpend, item.count);
+    // No "to" in mailto so To field is empty — user fills in support/cancel address; From stays default.
+    Linking.openURL(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
   const handleMarkSecured = (vendor: string) => {
@@ -237,7 +253,7 @@ export default function AlertsContent() {
                         <Pressable
                           onHoverIn={() => setHoveredVendor(`cancel-${item.vendor}`)}
                           onHoverOut={() => setHoveredVendor(null)}
-                          onPress={() => handleDraftEmail(item.vendor, item.monthlySpend)}
+                          onPress={() => handleDraftEmail(item)}
                           style={({ pressed }) => [
                             s.btnOutline,
                             isHovered && s.btnOutlineHover,

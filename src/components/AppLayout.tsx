@@ -1,8 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+
+const isWeb = Platform.OS === 'web';
+const gradientBgStyle = isWeb
+  ? { flex: 1, backgroundImage: 'linear-gradient(to bottom, #EDEBE8 0%, #F0E2D8 65%, #EDD0C0 100%)' as const }
+  : { flex: 1, backgroundColor: '#F0E2D8' };
 import TopBar from './TopBar';
 import MonthRangeSelector from './MonthRangeSelector';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID, type OverviewRange } from '../context/WorkspaceContext';
@@ -47,9 +51,7 @@ export default function AppLayout({ activeNav, onItemPress, onLogout, userEmail,
   };
 
   const GradientBg = useMemo(() => (props: { style?: any; children: React.ReactNode }) => (
-    <LinearGradient colors={['#EDEBE8', '#F0E2D8', '#EDD0C0']} locations={[0, 0.65, 1]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={[{ flex: 1 }, props.style]}>
-      {props.children}
-    </LinearGradient>
+    <View style={[gradientBgStyle, props.style]}>{props.children}</View>
   ), []);
 
   if (isNative) {
@@ -163,7 +165,8 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
   },
   scrollNative: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.xl,
     paddingBottom: 104,
   },
   bottomBar: {
