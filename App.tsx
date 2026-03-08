@@ -5,6 +5,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { WorkspaceProvider } from './src/context/WorkspaceContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import LoginScreen from './src/screens/LoginScreen';
 import AppLayout from './src/components/AppLayout';
 import DashboardContent from './src/screens/DashboardContent';
@@ -86,11 +87,12 @@ export default function App() {
   const content = PAGE_CONTENT[activeNav] ?? <DashboardContent />;
 
   return (
-    <WorkspaceProvider
-      userId={session?.user?.id ?? null}
-      isDemoMode={demoMode}
-    >
-      <View style={styles.root}>
+    <ThemeProvider>
+      <WorkspaceProvider
+        userId={session?.user?.id ?? null}
+        isDemoMode={demoMode}
+      >
+        <View style={styles.root}>
         <AppLayout
           activeNav={activeNav}
           onItemPress={setActiveNav}
@@ -99,9 +101,10 @@ export default function App() {
         >
           {content}
         </AppLayout>
-      </View>
-      <StatusBar style="dark" />
-    </WorkspaceProvider>
+        </View>
+        <StatusBar style="dark" />
+      </WorkspaceProvider>
+    </ThemeProvider>
   );
 }
 

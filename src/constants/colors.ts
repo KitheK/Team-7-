@@ -10,6 +10,7 @@ export const Colors = {
   sidebarActiveBg: '#f1f5f9',
   primary: '#1e40af',
   primaryMuted: '#2563eb',
+  primaryLight: 'rgba(30, 64, 175, 0.08)',
   text: '#0f172a',
   textSecondary: '#475569',
   textTertiary: '#94a3b8',
@@ -17,7 +18,9 @@ export const Colors = {
   inputBg: '#f8fafc',
   white: '#ffffff',
   success: '#16a34a',
+  successLight: 'rgba(22, 163, 74, 0.08)',
   danger: '#dc2626',
+  dangerLight: 'rgba(220, 38, 38, 0.08)',
   warning: '#ca8a04',
   info: '#2563eb',
   chart: [
@@ -39,3 +42,9 @@ export const Colors = {
     roi: '#ca8a04',
   },
 };
+
+export type ColorScheme = typeof Colors;
+
+export function getColors(_isDark?: boolean): ColorScheme {
+  return Colors;
+}
