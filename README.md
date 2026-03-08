@@ -118,3 +118,5 @@ Use `Platform.OS === 'web'` or platform-specific file extensions like `.ios.tsx`
 On iOS, you'll need Xcode installed to run the simulator. For a physical device, use Expo Go on the same WiFi network, or set up an EAS Build for a standalone app.
 
 On web, `npm run web` starts the dev server on port 8081. To build for production, run `npx expo export --platform web`.
+
+![Alfred Lean Canvas](./Alfred%20Lean%20Canvas.png)
