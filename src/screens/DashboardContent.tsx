@@ -269,7 +269,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     heroBubbleValue: {
       fontSize: isNative ? 20 : 24,
-      fontFamily: 'Jost_700Bold',
+      fontFamily: 'Jost_400Regular',
       color: c.text,
       letterSpacing: -0.5,
     },
@@ -307,7 +307,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1,
     },
     monthLeft: { flex: 1, minWidth: 0, marginRight: 10 },
-    monthSpend: { letterSpacing: -0.3, marginBottom: 2, fontSize: isNative ? 20 : 24, fontFamily: 'Jost_700Bold' },
+    monthSpend: { letterSpacing: -0.3, marginBottom: 2, fontSize: isNative ? 20 : 24, fontFamily: 'Jost_400Regular' },
     monthCircle: {
       borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', position: 'relative' as const,
     },

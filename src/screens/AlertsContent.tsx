@@ -405,7 +405,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     colCircleValue: {
       fontSize: isNative ? 20 : 24,
-      fontFamily: 'Jost_700Bold',
+      fontFamily: 'Jost_400Regular',
       color: c.text,
       letterSpacing: -0.5,
     },
