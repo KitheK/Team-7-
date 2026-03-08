@@ -1,0 +1,23 @@
+FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn[standard] \
+    huggingface_hub \
+    transformers>=4.52.1 \
+    torch \
+    torchaudio \
+    soundfile \
+    moshi
+
+COPY csm_server.py /app/csm_server.py
+
+EXPOSE 8003
+
+CMD ["uvicorn", "csm_server:app", "--host", "0.0.0.0", "--port", "8003"]
