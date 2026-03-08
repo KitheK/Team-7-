@@ -3,6 +3,7 @@ Custom Pipecat TTSService that calls the local Sesame CSM-1B FastAPI server.
 Follows the same pattern as Pipecat's built-in PiperHttpTTSService and XTTSService.
 """
 
+import os
 import aiohttp
 from pipecat.services.ai_services import TTSService
 from pipecat.frames.frames import (
@@ -16,6 +17,7 @@ from loguru import logger
 # Twilio expects 8kHz mulaw, but we produce 24kHz PCM from CSM-1B
 # and let the transport layer handle conversion.
 CSM_SAMPLE_RATE = 24000
+DEFAULT_PLAYBACK_CHUNK_MS = int(os.environ.get("CSM_PLAYBACK_CHUNK_MS", "80"))
 
 
 class CSMTTSService(TTSService):
@@ -27,12 +29,18 @@ class CSMTTSService(TTSService):
         base_url: str = "http://csm-tts:8003",
         speaker_id: int = 0,
         sample_rate: int = CSM_SAMPLE_RATE,
+        temperature: float = 0.55,
+        top_p: float = 0.85,
+        playback_chunk_ms: int = DEFAULT_PLAYBACK_CHUNK_MS,
         aiohttp_session: aiohttp.ClientSession,
         **kwargs,
     ):
         super().__init__(sample_rate=sample_rate, **kwargs)
         self._base_url = base_url.rstrip("/")
         self._speaker_id = speaker_id
+        self._temperature = temperature
+        self._top_p = top_p
+        self._playback_chunk_ms = max(40, playback_chunk_ms)
         self._session = aiohttp_session
 
     def can_generate_metrics(self) -> bool:
@@ -51,6 +59,8 @@ class CSMTTSService(TTSService):
                     "text": text,
                     "speaker_id": self._speaker_id,
                     "sample_rate": self._sample_rate,
+                    "temperature": self._temperature,
+                    "top_p": self._top_p,
                 },
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
@@ -67,7 +77,7 @@ class CSMTTSService(TTSService):
                 pcm_data = data[header_size:] if len(data) > header_size else data
 
                 # Yield audio in ~100ms chunks for smooth streaming
-                chunk_size = int(self._sample_rate * 2 * 0.1)  # 16-bit samples = 2 bytes each
+                chunk_size = int(self._sample_rate * 2 * (self._playback_chunk_ms / 1000.0))
                 for i in range(0, len(pcm_data), chunk_size):
                     chunk = pcm_data[i : i + chunk_size]
                     await self.push_frame(

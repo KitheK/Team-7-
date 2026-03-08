@@ -15,6 +15,9 @@ from transformers import AutoProcessor, AutoModelForCausalLM
 
 device = os.environ.get("CSM_DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
 default_speaker = int(os.environ.get("CSM_SPEAKER_ID", "0"))
+default_temperature = float(os.environ.get("CSM_TEMPERATURE", "0.55"))
+default_top_p = float(os.environ.get("CSM_TOP_P", "0.85"))
+default_max_new_tokens = int(os.environ.get("CSM_MAX_NEW_TOKENS", "1024"))
 
 model = None
 processor = None
@@ -47,6 +50,8 @@ class TTSRequest(BaseModel):
     text: str
     speaker_id: int = default_speaker
     sample_rate: int = SAMPLE_RATE
+    temperature: float = default_temperature
+    top_p: float = default_top_p
 
 
 @app.post("/tts")
@@ -63,10 +68,10 @@ async def synthesize(req: TTSRequest):
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=2048,
+                max_new_tokens=default_max_new_tokens,
                 do_sample=True,
-                temperature=0.7,
-                top_p=0.9,
+                temperature=req.temperature,
+                top_p=req.top_p,
             )
 
         audio_tensor = processor.decode(outputs[0])

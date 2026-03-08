@@ -27,11 +27,13 @@ create table if not exists public.transactions (
 alter table public.workspaces enable row level security;
 alter table public.transactions enable row level security;
 
+drop policy if exists "Users can manage own workspaces" on public.workspaces;
 create policy "Users can manage own workspaces"
   on public.workspaces for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can manage transactions in own workspaces" on public.transactions;
 create policy "Users can manage transactions in own workspaces"
   on public.transactions for all
   using (

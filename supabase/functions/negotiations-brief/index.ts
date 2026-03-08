@@ -6,7 +6,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
-const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}/v1/chat/completions`;
+const HF_API_URL = `https://router.huggingface.co/nscale/v1/chat/completions`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

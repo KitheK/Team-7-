@@ -9,8 +9,7 @@ and Sesame CSM-1B (TTS) with Twilio telephony.
 ```
 Twilio Media Streams
   └─ WebSocket ─→ Pipecat Pipeline (port 8765)
-                    ├─ Silero VAD (barge-in detection)
-                    ├─ Distil-Whisper v3 (STT, port 8001)
+                    ├─ Distil-Whisper v3 via Speaches (STT, port 8001)
                     ├─ Llama 3.2 3B via vLLM (LLM, port 8002)
                     └─ Sesame CSM-1B (TTS, port 8003)
 ```
@@ -114,7 +113,7 @@ When `provider` is set to `"local"`, it:
 
 The pipeline then:
 - Fetches the negotiation context from Supabase
-- Runs the real-time voice negotiation
+- Opens with the scripted greeting, then runs the real-time voice negotiation
 - Streams transcript lines to the `negotiations-webhook` Edge Function
 - Triggers summarisation when the call ends
 
@@ -128,3 +127,36 @@ The pipeline then:
 | AI model inference    | $0 (self-hosted)  |
 
 For a typical 5-minute negotiation call: ~$0.07 in Twilio fees + GPU time.
+
+## Staging Validation Checklist
+
+Before treating the local voice stack as production-ready, validate these scenarios in order:
+
+1. Configuration and health
+   - Confirm `PIPECAT_WS_URL`, Twilio credentials, `WEBHOOK_BASE_URL`, and Supabase service credentials are set.
+   - Confirm the `speaches`, `vllm`, `csm-tts`, and `pipecat` containers are healthy.
+   - Confirm `negotiations-start` returns a real `call_id`.
+
+2. Happy-path outbound call
+   - Start a negotiation from the app with a controlled staging phone number.
+   - Verify the call is placed and the agent opens with the scripted greeting.
+   - Verify `negotiations.status` moves from `pending` to `calling` to `completed`.
+
+3. Transcript flow
+   - Confirm transcript rows are inserted into `call_transcript_lines` during the call.
+   - Confirm duplicate transcript batches are not inserted twice.
+   - Confirm the live transcript UI updates during the call.
+
+4. Failure-path testing
+   - Test an invalid or unreachable phone number and verify the negotiation ends with `failed`.
+   - Test a no-answer scenario and verify it is categorized as `no_answer`.
+   - Temporarily break the webhook URL or correlation inputs and verify logs point to transcript correlation or delivery failure.
+
+5. Summarization and savings
+   - Confirm `negotiations-summarise` runs after call completion.
+   - Confirm `outcome`, `agreed_discount`, and `follow_up_email` are saved back to `negotiations`.
+   - If a successful discount is agreed, confirm a `negotiation_saving` anomaly is inserted.
+
+6. Logging review
+   - Review structured logs from `negotiations-start`, `negotiations-webhook`, `negotiations-summarise`, and the voice webhook client.
+   - Confirm failures are categorized clearly as configuration, provider launch, webhook delivery, transcript correlation, no-answer, or summarization failures.

@@ -39,8 +39,9 @@ export default function VendorNegotiationsContent() {
   const [activeTranscriptNeg, setActiveTranscriptNeg] = useState<Negotiation | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  const { activeWorkspaceTransactions, activeWorkspaceId } = useWorkspace();
+  const { activeWorkspaceTransactions, activeWorkspaceId, workspaces } = useWorkspace();
   const { subscriptions, priceCreepSignals, totalAmount, isEmpty } = useWorkspaceData(activeWorkspaceTransactions);
+  const resolvedWorkspaceId = activeWorkspaceId === 'all' ? (workspaces[0]?.id ?? null) : activeWorkspaceId;
 
   // Get current user ID
   useEffect(() => {
@@ -50,30 +51,30 @@ export default function VendorNegotiationsContent() {
 
   // Fetch existing negotiations for this workspace
   const fetchNegotiations = useCallback(async () => {
-    if (!supabase || !activeWorkspaceId || activeWorkspaceId === 'all') return;
+    if (!supabase || !resolvedWorkspaceId) return;
     const { data } = await supabase
       .from('negotiations')
       .select('*')
-      .eq('workspace_id', activeWorkspaceId)
+      .eq('workspace_id', resolvedWorkspaceId)
       .order('created_at', { ascending: false });
     if (data) setNegotiations(data as Negotiation[]);
-  }, [activeWorkspaceId]);
+  }, [resolvedWorkspaceId]);
 
   useEffect(() => { fetchNegotiations(); }, [fetchNegotiations]);
 
   // Realtime subscription for negotiation updates
   useEffect(() => {
-    if (!supabase || !activeWorkspaceId || activeWorkspaceId === 'all') return;
+    if (!supabase || !resolvedWorkspaceId) return;
 
     const channel = supabase
-      .channel(`negotiations-${activeWorkspaceId}`)
+      .channel(`negotiations-${resolvedWorkspaceId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'negotiations',
-          filter: `workspace_id=eq.${activeWorkspaceId}`,
+          filter: `workspace_id=eq.${resolvedWorkspaceId}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -90,7 +91,7 @@ export default function VendorNegotiationsContent() {
       .subscribe();
 
     return () => { supabase!.removeChannel(channel); };
-  }, [activeWorkspaceId, activeTranscriptNeg?.id]);
+  }, [resolvedWorkspaceId, activeTranscriptNeg?.id]);
 
   const negotiationCandidates = useMemo(() => {
     const highSpend = subscriptions.filter(s => s.totalAmount >= 2000).slice(0, 6);
@@ -122,11 +123,31 @@ export default function VendorNegotiationsContent() {
     setScheduleModalVisible(true);
   };
 
-  const handleCallStarted = (negotiationId: string) => {
+  const handleCallStarted = useCallback(async (negotiationId: string) => {
+    if (!supabase) return;
+
+    const { data } = await supabase
+      .from('negotiations')
+      .select('*')
+      .eq('id', negotiationId)
+      .single();
+
+    if (data) {
+      const startedNegotiation = data as Negotiation;
+      setNegotiations(prev => {
+        const existingIndex = prev.findIndex(n => n.id === startedNegotiation.id);
+        if (existingIndex === -1) return [startedNegotiation, ...prev];
+
+        const next = [...prev];
+        next[existingIndex] = startedNegotiation;
+        return next;
+      });
+      setActiveTranscriptNeg(startedNegotiation);
+      return;
+    }
+
     fetchNegotiations();
-    const neg = negotiations.find(n => n.id === negotiationId);
-    if (neg) setActiveTranscriptNeg(neg);
-  };
+  }, [fetchNegotiations]);
 
   const handleDraftEmail = (vendor: string, currentCost: number, targetCost: number, strategy: string) => {
     const body = draftNegotiationEmail(vendor, currentCost, targetCost, strategy);
@@ -312,7 +333,7 @@ export default function VendorNegotiationsContent() {
         visible={scheduleModalVisible}
         onClose={() => setScheduleModalVisible(false)}
         vendorName={scheduleVendor}
-        workspaceId={activeWorkspaceId}
+        workspaceId={resolvedWorkspaceId}
         onCallStarted={handleCallStarted}
       />
     </>

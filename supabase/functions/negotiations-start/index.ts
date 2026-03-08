@@ -12,7 +12,7 @@ const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") ?? "";
 const PIPECAT_WS_URL = Deno.env.get("PIPECAT_WS_URL") ?? "";
 
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
-const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}/v1/chat/completions`;
+const HF_API_URL = `https://router.huggingface.co/nscale/v1/chat/completions`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +28,21 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
     "Be professional but uncompromising. Make it clear alternatives are being evaluated. Use phrases like 'we have competitive offers', 'we require a pricing adjustment to continue', 'our budget constraints are firm'.",
 };
 
+function missingEnvVars(vars: Record<string, string>) {
+  return Object.entries(vars)
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+}
+
+function logEvent(event: string, details: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({
+    component: "negotiations-start",
+    event,
+    timestamp: new Date().toISOString(),
+    ...details,
+  }));
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -36,6 +51,7 @@ serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      logEvent("auth_missing");
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -48,14 +64,57 @@ serve(async (req: Request) => {
       await req.json();
 
     if (!negotiation_id || !vendor_phone) {
+      logEvent("request_invalid", { negotiation_id, has_vendor_phone: Boolean(vendor_phone) });
       return new Response(
         JSON.stringify({ error: "negotiation_id and vendor_phone are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Determine voice provider: "local" (Pipecat + Twilio) or "bland" (default)
-    const voiceProvider = provider ?? (PIPECAT_WS_URL ? "local" : "bland");
+    // Phase 2: make the self-hosted voice stack the primary path.
+    const voiceProvider = provider === "bland" ? "bland" : "local";
+    logEvent("request_received", {
+      negotiation_id,
+      provider_requested: provider ?? null,
+      provider_selected: voiceProvider,
+    });
+
+    if (voiceProvider === "local") {
+      const missing = missingEnvVars({
+        PIPECAT_WS_URL,
+        TWILIO_ACCOUNT_SID,
+        TWILIO_AUTH_TOKEN,
+        TWILIO_PHONE_NUMBER,
+        WEBHOOK_BASE_URL,
+      });
+
+      if (missing.length > 0) {
+        logEvent("config_missing", { negotiation_id, provider: voiceProvider, missing });
+        return new Response(
+          JSON.stringify({
+            error: "Local voice pipeline is not fully configured",
+            details: `Missing required env vars: ${missing.join(", ")}`,
+          }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      const missing = missingEnvVars({
+        BLAND_AI_API_KEY,
+        WEBHOOK_BASE_URL,
+      });
+
+      if (missing.length > 0) {
+        logEvent("config_missing", { negotiation_id, provider: voiceProvider, missing });
+        return new Response(
+          JSON.stringify({
+            error: "Bland fallback is not fully configured",
+            details: `Missing required env vars: ${missing.join(", ")}`,
+          }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // Fetch the negotiation record and its brief
     const { data: negotiation, error: fetchErr } = await supabaseAdmin
@@ -65,11 +124,21 @@ serve(async (req: Request) => {
       .single();
 
     if (fetchErr || !negotiation) {
+      logEvent("negotiation_not_found", {
+        negotiation_id,
+        error: fetchErr?.message ?? null,
+      });
       return new Response(JSON.stringify({ error: "Negotiation not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    logEvent("negotiation_loaded", {
+      negotiation_id,
+      provider: voiceProvider,
+      vendor_name: negotiation.vendor_name,
+    });
 
     const activeTone = tone ?? negotiation.tone ?? "collaborative";
     const discount = target_discount ?? negotiation.target_discount ?? 15;
@@ -132,6 +201,11 @@ Respond with ONLY the JSON object.`;
         .from("negotiations")
         .update({ status: "failed" })
         .eq("id", negotiation_id);
+      logEvent("script_generation_failed", {
+        negotiation_id,
+        provider: voiceProvider,
+        status: hfResponse.status,
+      });
       return new Response(
         JSON.stringify({ error: "HuggingFace API error", details: errText }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -158,7 +232,12 @@ Respond with ONLY the JSON object.`;
     if (voiceProvider === "local") {
       // ── Local Pipecat stack via Twilio Media Streams ──
       const twilioApiUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`;
-      const wsUrl = `${PIPECAT_WS_URL}?negotiation_id=${negotiation_id}&call_id=${negotiation_id}`;
+      const wsUrl = `${PIPECAT_WS_URL}?negotiation_id=${negotiation_id}`;
+      logEvent("provider_launch_attempt", {
+        negotiation_id,
+        provider: voiceProvider,
+        vendor_phone,
+      });
 
       const twiml = `<Response><Connect><Stream url="${wsUrl}"><Parameter name="negotiation_id" value="${negotiation_id}"/></Stream></Connect></Response>`;
 
@@ -184,11 +263,26 @@ Respond with ONLY the JSON object.`;
       if (twilioResponse.ok) {
         const twilioData = await twilioResponse.json();
         callId = twilioData.sid ?? null;
+        logEvent("provider_launch_success", {
+          negotiation_id,
+          provider: voiceProvider,
+          call_id: callId,
+        });
       } else {
         providerError = await twilioResponse.text();
+        logEvent("provider_launch_failed", {
+          negotiation_id,
+          provider: voiceProvider,
+          status: twilioResponse.status,
+        });
       }
     } else {
       // ── Bland AI (cloud provider) ──
+      logEvent("provider_launch_attempt", {
+        negotiation_id,
+        provider: voiceProvider,
+        vendor_phone,
+      });
       const blandResponse = await fetch("https://api.bland.ai/v1/calls", {
         method: "POST",
         headers: {
@@ -210,8 +304,18 @@ Respond with ONLY the JSON object.`;
       if (blandResponse.ok) {
         const blandData = await blandResponse.json();
         callId = blandData.call_id ?? null;
+        logEvent("provider_launch_success", {
+          negotiation_id,
+          provider: voiceProvider,
+          call_id: callId,
+        });
       } else {
         providerError = await blandResponse.text();
+        logEvent("provider_launch_failed", {
+          negotiation_id,
+          provider: voiceProvider,
+          status: blandResponse.status,
+        });
       }
     }
 
@@ -231,10 +335,16 @@ Respond with ONLY the JSON object.`;
       .eq("id", negotiation_id);
 
     if (!callId) {
+      logEvent("call_start_failed", {
+        negotiation_id,
+        provider: voiceProvider,
+        failure_category: "provider_launch_failed",
+      });
       return new Response(
         JSON.stringify({
           error: `${voiceProvider} call failed`,
           details: providerError,
+          provider: voiceProvider,
           script,
         }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -245,12 +355,16 @@ Respond with ONLY the JSON object.`;
       JSON.stringify({
         negotiation_id,
         call_id: callId,
+        provider: voiceProvider,
         status: "calling",
         script,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    logEvent("unexpected_error", {
+      error: (err as Error).message,
+    });
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

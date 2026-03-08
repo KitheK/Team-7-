@@ -5,6 +5,7 @@ to the Supabase negotiations-webhook Edge Function.
 
 import os
 import asyncio
+import json
 import aiohttp
 from loguru import logger
 
@@ -27,6 +28,7 @@ class WebhookClient:
     async def start(self):
         self._session = aiohttp.ClientSession()
         self._task = asyncio.create_task(self._flush_loop())
+        self._log_event("started")
 
     async def stop(self):
         if self._task:
@@ -37,6 +39,7 @@ class WebhookClient:
                 pass
         if self._session:
             await self._session.close()
+        self._log_event("stopped")
 
     def add_transcript_line(self, speaker: str, text: str):
         """Queue a transcript line for batched sending."""
@@ -51,17 +54,22 @@ class WebhookClient:
 
     async def send_call_ended(self):
         """Notify the webhook that the call has completed."""
+        self._log_event("call_completed")
         await self._post({
             "call_id": self._call_id,
+            "negotiation_id": self._negotiation_id,
             "status": "completed",
             "completed": True,
         })
 
     async def send_call_failed(self, reason: str = "error"):
         """Notify the webhook that the call failed."""
+        self._log_event("call_failed", details=reason)
         await self._post({
             "call_id": self._call_id,
+            "negotiation_id": self._negotiation_id,
             "status": "failed",
+            "details": reason,
         })
 
     async def _flush_loop(self):
@@ -76,8 +84,10 @@ class WebhookClient:
                     break
 
             if lines:
+                self._log_event("transcript_batch_flush", transcript_count=len(lines))
                 await self._post({
                     "call_id": self._call_id,
+                    "negotiation_id": self._negotiation_id,
                     "status": "in-progress",
                     "transcripts": [
                         {
@@ -109,5 +119,22 @@ class WebhookClient:
                 if resp.status >= 400:
                     body = await resp.text()
                     logger.error(f"Webhook POST failed {resp.status}: {body}")
+                    self._log_event(
+                        "post_failed",
+                        status=resp.status,
+                        failure_category="webhook_delivery_failed",
+                    )
+                else:
+                    self._log_event("post_succeeded", status=resp.status)
         except Exception as e:
             logger.error(f"Webhook POST error: {e}")
+            self._log_event("post_failed", failure_category="webhook_delivery_failed", details=str(e))
+
+    def _log_event(self, event: str, **details):
+        logger.info(json.dumps({
+            "component": "voice-webhook-client",
+            "event": event,
+            "call_id": self._call_id,
+            "negotiation_id": self._negotiation_id,
+            **details,
+        }))

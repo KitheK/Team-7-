@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable, Modal, ActivityIndicator,
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { generateBrief, generateScriptAndStartCall } from '../utils/negotiationAI';
 import type { NegotiationTone } from '../context/WorkspaceContext';
 
 type Props = {
@@ -11,7 +12,7 @@ type Props = {
   vendorName?: string;
   workspaceId?: string | null;
   annualSpend?: number;
-  onCallStarted?: (negotiationId: string) => void;
+  onCallStarted?: (negotiationId: string) => Promise<void> | void;
 };
 
 type Step = 'form' | 'loading-brief' | 'brief-preview' | 'calling' | 'success' | 'error';
@@ -51,81 +52,72 @@ export default function ScheduleAICallModal({
   }, [visible, vendorName]);
 
   const handleGenerateBrief = async () => {
-    if (!supabase || !vendor.trim()) return;
+    if (!vendor.trim()) return;
+    if (!workspaceId) {
+      setErrorMsg('Select a workspace before starting an AI call.');
+      setStep('error');
+      return;
+    }
     setStep('loading-brief');
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const result = await generateBrief(vendor, workspaceId ?? null, 1000);
 
-      const res = await fetch(`${url}/functions/v1/negotiations-brief`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          vendor_name: vendor,
-          workspace_id: workspaceId,
-          threshold: 1000,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setErrorMsg(data.error ?? 'Failed to generate brief');
+      if (result.error) {
+        setErrorMsg(result.error);
         setStep('error');
         return;
       }
 
-      setBrief(data.brief);
-      if (data.negotiations?.[0]?.id) {
-        setNegotiationId(data.negotiations[0].id);
+      if (!result.negotiationId) {
+        setErrorMsg('Could not create a tracked negotiation for this call.');
+        setStep('error');
+        return;
       }
+
+      setBrief(result.brief);
+      setNegotiationId(result.negotiationId);
       setStep('brief-preview');
     } catch (e: any) {
-      setErrorMsg(e.message ?? 'Network error');
+      setErrorMsg(e.message ?? 'Failed to generate brief');
       setStep('error');
     }
   };
 
   const handleStartCall = async () => {
-    if (!supabase || !negotiationId || !phone.trim()) return;
+    if (!phone.trim()) return;
     setStep('calling');
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-
-      const res = await fetch(`${url}/functions/v1/negotiations-start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          negotiation_id: negotiationId,
+      const briefVendorData = brief?.vendors?.[0] ?? brief;
+      const result = await generateScriptAndStartCall(
+        negotiationId,
+        phone,
+        tone,
+        {
           vendor_name: vendor,
-          vendor_phone: phone,
-          tone,
-        }),
-      });
+          annual_spend: briefVendorData?.annual_spend ?? annualSpend,
+          target_discount: briefVendorData?.discount_target_pct ?? 15,
+          talking_points: briefVendorData?.talking_points,
+        }
+      );
 
-      const data = await res.json();
+      if (result.error) {
+        setErrorMsg(result.error);
+        setStep('error');
+        return;
+      }
 
-      if (!res.ok) {
-        setErrorMsg(data.error ?? 'Failed to start call');
+      if (!result.callId) {
+        setErrorMsg('Call launch did not return a call ID.');
         setStep('error');
         return;
       }
 
       setStep('success');
-      onCallStarted?.(negotiationId);
+      if (negotiationId) onCallStarted?.(negotiationId);
     } catch (e: any) {
-      setErrorMsg(e.message ?? 'Network error');
+      setErrorMsg(e.message ?? 'Failed to start call');
       setStep('error');
     }
   };

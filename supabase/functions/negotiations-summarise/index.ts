@@ -6,12 +6,21 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
-const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}/v1/chat/completions`;
+const HF_API_URL = `https://router.huggingface.co/nscale/v1/chat/completions`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function logEvent(event: string, details: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({
+    component: "negotiations-summarise",
+    event,
+    timestamp: new Date().toISOString(),
+    ...details,
+  }));
+}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -21,8 +30,10 @@ serve(async (req: Request) => {
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { negotiation_id } = await req.json();
+    logEvent("request_received", { negotiation_id });
 
     if (!negotiation_id) {
+      logEvent("request_invalid", { reason: "missing_negotiation_id" });
       return new Response(JSON.stringify({ error: "negotiation_id is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -37,6 +48,10 @@ serve(async (req: Request) => {
       .single();
 
     if (negErr || !negotiation) {
+      logEvent("negotiation_not_found", {
+        negotiation_id,
+        error: negErr?.message ?? null,
+      });
       return new Response(JSON.stringify({ error: "Negotiation not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -51,11 +66,16 @@ serve(async (req: Request) => {
       .order("timestamp_ms", { ascending: true });
 
     if (linesErr || !lines || lines.length === 0) {
+      logEvent("transcript_missing", {
+        negotiation_id,
+        failure_category: "summarisation_missing_transcript",
+      });
       return new Response(
         JSON.stringify({ error: "No transcript lines found for this negotiation" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    logEvent("transcript_loaded", { negotiation_id, line_count: lines.length });
 
     const transcriptText = lines
       .map((l: any) => `[${l.speaker.toUpperCase()}]: ${l.content}`)
@@ -105,6 +125,11 @@ Respond with ONLY the JSON object.`;
 
     if (!hfResponse.ok) {
       const errText = await hfResponse.text();
+      logEvent("summary_generation_failed", {
+        negotiation_id,
+        status: hfResponse.status,
+        failure_category: "summary_model_failed",
+      });
       return new Response(
         JSON.stringify({ error: "HuggingFace API error", details: errText }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -132,6 +157,11 @@ Respond with ONLY the JSON object.`;
         status: "completed",
       })
       .eq("id", negotiation_id);
+    logEvent("summary_saved", {
+      negotiation_id,
+      outcome: summary.outcome ?? "error",
+      agreed_discount: summary.agreed_discount ?? null,
+    });
 
     // If successful, log the saving to the anomalies table for ROI tracking
     if (
@@ -155,6 +185,10 @@ Respond with ONLY the JSON object.`;
         },
         source: "csv",
       });
+      logEvent("savings_logged", {
+        negotiation_id,
+        savings_amount: Math.round(savingsAmount * 100) / 100,
+      });
     }
 
     return new Response(
@@ -162,6 +196,7 @@ Respond with ONLY the JSON object.`;
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    logEvent("unexpected_error", { error: (err as Error).message });
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
