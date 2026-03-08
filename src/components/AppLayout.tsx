@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Modal, Pressable, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
-import { Colors } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID, type OverviewRange } from '../context/WorkspaceContext';
 import { useLayout } from '../context/LayoutContext';
 
@@ -15,27 +15,20 @@ type Props = {
   children: React.ReactNode;
 };
 
-const SIDEBAR_WIDTH = 200;
+const SIDEBAR_WIDTH = 220;
 const SIDEBAR_WIDTH_MOBILE = 280;
-const isIOS = Platform.OS === 'ios';
 
-export default function AppLayout({
-  activeNav,
-  onItemPress,
-  onLogout,
-  userEmail,
-  children,
-}: Props) {
+export default function AppLayout({ activeNav, onItemPress, onLogout, userEmail, children }: Props) {
   const { isMobile, isNative } = useLayout();
+  const c = useColors();
+  const s = useMemo(() => createStyles(c), [c]);
   const [sidebarOpen, setSidebarOpen] = useState(!isNative && !isMobile);
   const insets = useSafeAreaInsets();
   const { activeWorkspaceId, activeWorkspace, overviewRange } = useWorkspace();
   const rangeLabel: Record<OverviewRange, string> = { all: 'All months', last3: 'Last 3 months', last6: 'Last 6 months' };
   const viewingLabel = activeWorkspaceId === OVERVIEW_ID || !activeWorkspaceId
     ? rangeLabel[overviewRange]
-    : activeWorkspace
-      ? workspaceLabel(activeWorkspace)
-      : 'All months';
+    : activeWorkspace ? workspaceLabel(activeWorkspace) : 'All months';
 
   useEffect(() => {
     if (isNative) setSidebarOpen(false);
@@ -44,60 +37,29 @@ export default function AppLayout({
   }, [isMobile, isNative]);
 
   const closeSidebar = () => setSidebarOpen(false);
-  const toggleSidebar = () => setSidebarOpen(prev => !prev);
-
+  const toggleSidebar = () => setSidebarOpen(p => !p);
   const handleNavPress = (key: string) => {
     onItemPress(key);
     if (isNative || isMobile) closeSidebar();
   };
 
-  const sidebarContent = (
-    <Sidebar
-      activeItem={activeNav}
-      onItemPress={handleNavPress}
-      onLogout={onLogout}
-      onClose={isNative || isMobile ? closeSidebar : undefined}
-    />
+  const sidebar = (
+    <Sidebar activeItem={activeNav} onItemPress={handleNavPress} onLogout={onLogout} onClose={isNative || isMobile ? closeSidebar : undefined} />
   );
 
   if (isNative) {
     return (
-      <View style={styles.root}>
-        <Modal
-          visible={sidebarOpen}
-          animationType="slide"
-          transparent
-          onRequestClose={closeSidebar}
-          statusBarTranslucent
-        >
-          <Pressable style={styles.drawerBackdrop} onPress={closeSidebar}>
-            <Pressable
-              style={[styles.drawerPane, { width: SIDEBAR_WIDTH_MOBILE }]}
-              onPress={e => e.stopPropagation()}
-            >
-              <SafeAreaView style={styles.drawerSafe} edges={['top', 'bottom']}>
-                {sidebarContent}
-              </SafeAreaView>
+      <View style={s.root}>
+        <Modal visible={sidebarOpen} animationType="slide" transparent onRequestClose={closeSidebar} statusBarTranslucent>
+          <Pressable style={s.drawerBackdrop} onPress={closeSidebar}>
+            <Pressable style={[s.drawerPane, { width: SIDEBAR_WIDTH_MOBILE }]} onPress={e => e.stopPropagation()}>
+              <SafeAreaView style={s.drawerSafe} edges={['top', 'bottom']}>{sidebar}</SafeAreaView>
             </Pressable>
           </Pressable>
         </Modal>
-
-        <SafeAreaView style={styles.nativeSafe} edges={['top', 'left', 'right']}>
-          <TopBar
-            userName={userEmail?.split('@')[0] ?? 'User'}
-            userRole="Finance Director"
-            viewingLabel={viewingLabel}
-            sidebarOpen={sidebarOpen}
-            onMenuPress={toggleSidebar}
-            isNative={true}
-          />
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={[styles.scrollContent, styles.scrollContentNative, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
-            showsVerticalScrollIndicator={true}
-            bounces={true}
-            keyboardShouldPersistTaps="handled"
-          >
+        <SafeAreaView style={s.nativeSafe} edges={['top', 'left', 'right']}>
+          <TopBar userName={userEmail?.split('@')[0] ?? 'User'} userRole="" viewingLabel={viewingLabel} sidebarOpen={sidebarOpen} onMenuPress={toggleSidebar} isNative />
+          <ScrollView style={s.scroll} contentContainerStyle={[s.scrollContent, s.scrollNative, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]} showsVerticalScrollIndicator bounces keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         </SafeAreaView>
@@ -105,44 +67,22 @@ export default function AppLayout({
     );
   }
 
-  // Web layout (completely unchanged from original behavior)
   return (
-    <View style={styles.root}>
+    <View style={s.root}>
       {isMobile ? (
-        <Modal
-          visible={sidebarOpen}
-          animationType="slide"
-          transparent
-          onRequestClose={closeSidebar}
-        >
-          <Pressable style={styles.drawerBackdrop} onPress={closeSidebar}>
-            <Pressable
-              style={[styles.drawerPane, { width: SIDEBAR_WIDTH_MOBILE }]}
-              onPress={e => e.stopPropagation()}
-            >
-              {sidebarContent}
+        <Modal visible={sidebarOpen} animationType="slide" transparent onRequestClose={closeSidebar}>
+          <Pressable style={s.drawerBackdrop} onPress={closeSidebar}>
+            <Pressable style={[s.drawerPane, { width: SIDEBAR_WIDTH_MOBILE }]} onPress={e => e.stopPropagation()}>
+              {sidebar}
             </Pressable>
           </Pressable>
         </Modal>
       ) : (
-        <View style={[styles.sidebarWrap, { width: sidebarOpen ? SIDEBAR_WIDTH : 0 }]}>
-          {sidebarContent}
-        </View>
+        <View style={[s.sidebarWrap, { width: sidebarOpen ? SIDEBAR_WIDTH : 0 }]}>{sidebar}</View>
       )}
-      <View style={styles.main}>
-        <TopBar
-          userName={userEmail?.split('@')[0] ?? 'User'}
-          userRole="Finance Director"
-          viewingLabel={viewingLabel}
-          sidebarOpen={sidebarOpen}
-          onMenuPress={toggleSidebar}
-          isNative={false}
-        />
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}
-          showsVerticalScrollIndicator={false}
-        >
+      <View style={s.main}>
+        <TopBar userName={userEmail?.split('@')[0] ?? 'User'} userRole="" viewingLabel={viewingLabel} sidebarOpen={sidebarOpen} onMenuPress={toggleSidebar} isNative={false} />
+        <ScrollView style={s.scroll} contentContainerStyle={[s.scrollContent, isMobile && s.scrollMobile]} showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
       </View>
@@ -150,49 +90,18 @@ export default function AppLayout({
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
-  },
-  sidebarWrap: {
-    overflow: 'hidden',
-  },
-  drawerBackdrop: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-start',
-  },
-  drawerPane: {
-    height: '100%',
-    backgroundColor: Colors.sidebar,
-  },
-  drawerSafe: {
-    flex: 1,
-  },
-  nativeSafe: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  main: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
-  },
-  scrollContentMobile: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  scrollContentNative: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-});
+function createStyles(c: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    root: { flex: 1, flexDirection: 'row', backgroundColor: c.background },
+    sidebarWrap: { overflow: 'hidden' },
+    drawerBackdrop: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-start' },
+    drawerPane: { height: '100%', backgroundColor: c.sidebar },
+    drawerSafe: { flex: 1 },
+    nativeSafe: { flex: 1, backgroundColor: c.background },
+    main: { flex: 1, overflow: 'hidden' },
+    scroll: { flex: 1 },
+    scrollContent: { padding: 28, paddingBottom: 48, maxWidth: 1100 },
+    scrollMobile: { padding: 16, paddingBottom: 32 },
+    scrollNative: { padding: 16, paddingBottom: 40 },
+  });
+}

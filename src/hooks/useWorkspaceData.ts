@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Transaction } from '../context/WorkspaceContext';
-import { Colors } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { getCategoryForVendor, CATEGORY_COLORS } from '../utils/vendorCategoryMap';
 
 export type SubscriptionRow = {
@@ -35,6 +35,8 @@ export type VendorAnalyticsRow = {
 };
 
 export function useWorkspaceData(transactions: Transaction[]) {
+  const c = useColors();
+
   return useMemo(() => {
     const totalAmount = transactions.reduce((s, t) => s + Number(t.amount), 0);
 
@@ -88,7 +90,7 @@ export function useWorkspaceData(transactions: Transaction[]) {
       .map(([name, value], i) => ({
         name,
         value,
-        color: CATEGORY_COLORS[name] ?? Colors.chart[i % Colors.chart.length],
+        color: CATEGORY_COLORS[name] ?? c.chart[i % c.chart.length],
       }))
       .sort((a, b) => b.value - a.value);
 
@@ -103,7 +105,7 @@ export function useWorkspaceData(transactions: Transaction[]) {
     const byVendorChart = subscriptions.map((s, i) => ({
       name: s.vendor,
       value: s.totalAmount,
-      color: Colors.chart[i % Colors.chart.length],
+      color: c.chart[i % c.chart.length],
     }));
 
     return {
@@ -117,5 +119,5 @@ export function useWorkspaceData(transactions: Transaction[]) {
       vendorAnalytics,
       isEmpty: transactions.length === 0,
     };
-  }, [transactions]);
+  }, [transactions, c]);
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, {
   Path,
@@ -10,7 +10,7 @@ import Svg, {
   Stop,
   G,
 } from 'react-native-svg';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/ThemeContext';
 import { Typography, chartFontFamily } from '../../constants/typography';
 
 type Props = {
@@ -26,8 +26,11 @@ export default function LineChart({
   height,
   labels,
   values,
-  color = Colors.primary,
+  color,
 }: Props) {
+  const c = useColors();
+  const resolvedColor = color ?? c.primary;
+
   if (width <= 0 || values.length === 0) return null;
 
   const pad = { top: 20, right: 20, bottom: 36, left: 58 };
@@ -55,8 +58,8 @@ export default function LineChart({
       <Svg width={width} height={height}>
         <Defs>
           <LinearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={color} stopOpacity="0.2" />
-            <Stop offset="100%" stopColor={color} stopOpacity="0.01" />
+            <Stop offset="0%" stopColor={resolvedColor} stopOpacity="0.2" />
+            <Stop offset="100%" stopColor={resolvedColor} stopOpacity="0.01" />
           </LinearGradient>
         </Defs>
 
@@ -70,7 +73,7 @@ export default function LineChart({
                 y1={y}
                 x2={width - pad.right}
                 y2={y}
-                stroke={Colors.border}
+                stroke={c.border}
                 strokeWidth={1}
                 strokeDasharray="4,4"
               />
@@ -80,7 +83,7 @@ export default function LineChart({
                 textAnchor="end"
                 fontFamily={chartFontFamily}
                 fontSize={Typography.chart.axisValue}
-                fill={Colors.textTertiary}
+                fill={c.textTertiary}
               >
                 {val >= 1000 ? `${Math.round(val / 1000)}k` : Math.round(val).toString()}
               </SvgText>
@@ -89,18 +92,18 @@ export default function LineChart({
         })}
 
         <Path d={areaPath} fill="url(#areaFill)" />
-        <Path d={linePath} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d={linePath} stroke={resolvedColor} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
 
         {points.map((p, i) => (
           <G key={i}>
-            <Circle cx={p.x} cy={p.y} r={5} fill={Colors.white} stroke={color} strokeWidth={2.5} />
+            <Circle cx={p.x} cy={p.y} r={5} fill={c.white} stroke={resolvedColor} strokeWidth={2.5} />
             <SvgText
               x={p.x}
               y={pad.top + plotH + 24}
               textAnchor="middle"
               fontFamily={chartFontFamily}
               fontSize={Typography.chart.axisLabel}
-              fill={Colors.textTertiary}
+              fill={c.textTertiary}
             >
               {labels[i]}
             </SvgText>

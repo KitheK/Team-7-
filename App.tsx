@@ -7,118 +7,88 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { WorkspaceProvider } from './src/context/WorkspaceContext';
 import { LayoutProvider } from './src/context/LayoutContext';
+import { ThemeProvider, useColors, useTheme } from './src/context/ThemeContext';
 import LoginScreen from './src/screens/LoginScreen';
 import AppLayout from './src/components/AppLayout';
 import DashboardContent from './src/screens/DashboardContent';
-import SubscriptionsContent from './src/screens/SubscriptionsContent';
-import PriceCreepContent from './src/screens/PriceCreepContent';
-import SpendCategoriesContent from './src/screens/SpendCategoriesContent';
-import VendorAnalyticsContent from './src/screens/VendorAnalyticsContent';
-import VendorNegotiationsContent from './src/screens/VendorNegotiationsContent';
-import AutomatedCancellationContent from './src/screens/AutomatedCancellationContent';
-import AIRecommendationsContent from './src/screens/AIRecommendationsContent';
-import SavingsContent from './src/screens/SavingsContent';
-import ShadowMarketContent from './src/screens/ShadowMarketContent';
-import { Colors } from './src/constants/colors';
+import SpendingContent from './src/screens/SpendingContent';
+import AlertsContent from './src/screens/AlertsContent';
+import WhatIfContent from './src/screens/WhatIfContent';
 
 const PAGE_CONTENT: Record<string, React.ReactNode> = {
   Dashboard: <DashboardContent />,
-  'Shadow Market': <ShadowMarketContent />,
-  Subscriptions: <SubscriptionsContent />,
-  'Price Creep': <PriceCreepContent />,
-  'Spend Categories': <SpendCategoriesContent />,
-  'Vendor Analytics': <VendorAnalyticsContent />,
-  'Vendor Negotiations': <VendorNegotiationsContent />,
-  'Automated Cancellation': <AutomatedCancellationContent />,
-  'AI Recommendations': <AIRecommendationsContent />,
-  Savings: <SavingsContent />,
+  Spending: <SpendingContent />,
+  Alerts: <AlertsContent />,
+  'What If': <WhatIfContent />,
 };
 
-export default function App() {
+function AppInner() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [activeNav, setActiveNav] = useState('Dashboard');
+  const c = useColors();
+  const { isDark } = useTheme();
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
+    if (!supabase) { setLoading(false); return; }
     const timeout = setTimeout(() => setLoading(false), 5000);
-
-    supabase.auth
-      .getSession()
+    supabase.auth.getSession()
       .then(({ data: { session } }) => setSession(session))
       .catch(() => {})
-      .finally(() => {
-        clearTimeout(timeout);
-        setLoading(false);
-      });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+      .finally(() => { clearTimeout(timeout); setLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <StatusBar style="dark" />
+      <View style={[styles.loading, { backgroundColor: c.background }]}>
+        <ActivityIndicator size="large" color={c.primary} />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
       </View>
     );
   }
 
-  const isLoggedIn = session || demoMode;
-
-  if (!isLoggedIn) {
+  if (!session && !demoMode) {
     return (
       <SafeAreaProvider>
         <LoginScreen onDemoPress={() => setDemoMode(true)} />
-        <StatusBar style="dark" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
       </SafeAreaProvider>
     );
   }
 
-  const content = PAGE_CONTENT[activeNav] ?? <DashboardContent />;
-
   return (
     <SafeAreaProvider>
-    <WorkspaceProvider
-      userId={session?.user?.id ?? null}
-      isDemoMode={demoMode}
-    >
-      <LayoutProvider>
-        <View style={styles.root}>
-          <AppLayout
-          activeNav={activeNav}
-          onItemPress={setActiveNav}
-          onLogout={async () => { await supabase?.auth.signOut(); setActiveNav('Dashboard'); }}
-          userEmail={session?.user?.email ?? 'demo@finoptima.com'}
-        >
-          {content}
-        </AppLayout>
-        </View>
-      </LayoutProvider>
-      <StatusBar style="dark" />
-    </WorkspaceProvider>
+      <WorkspaceProvider userId={session?.user?.id ?? null} isDemoMode={demoMode}>
+        <LayoutProvider>
+          <View style={styles.root}>
+            <AppLayout
+              activeNav={activeNav}
+              onItemPress={setActiveNav}
+              onLogout={async () => { await supabase?.auth.signOut(); setDemoMode(false); setActiveNav('Dashboard'); }}
+              userEmail={session?.user?.email ?? 'demo@leanledger.com'}
+            >
+              {PAGE_CONTENT[activeNav] ?? <DashboardContent />}
+            </AppLayout>
+          </View>
+        </LayoutProvider>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </WorkspaceProvider>
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
