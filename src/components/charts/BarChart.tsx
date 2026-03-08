@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, {
-  Rect,
   G,
   Line,
   Text as SvgText,
   Path,
 } from 'react-native-svg';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/ThemeContext';
+import type { ColorScheme } from '../../constants/colors';
 import { Typography, chartFontFamily } from '../../constants/typography';
 
 type Props = {
@@ -31,6 +31,9 @@ function roundedTopRect(x: number, y: number, w: number, h: number, r: number) {
 }
 
 export default function BarChart({ width, height, labels, series }: Props) {
+  const c = useColors();
+  const s = useMemo(() => createStyles(c), [c]);
+
   if (width <= 0 || labels.length === 0) return null;
 
   const pad = { top: 20, right: 20, bottom: 36, left: 58 };
@@ -60,7 +63,7 @@ export default function BarChart({ width, height, labels, series }: Props) {
                 y1={y}
                 x2={width - pad.right}
                 y2={y}
-                stroke={Colors.border}
+                stroke={c.border}
                 strokeWidth={1}
                 strokeDasharray="4,4"
               />
@@ -70,7 +73,7 @@ export default function BarChart({ width, height, labels, series }: Props) {
                 textAnchor="end"
                 fontFamily={chartFontFamily}
                 fontSize={Typography.chart.axisValue}
-                fill={Colors.textTertiary}
+                fill={c.textTertiary}
               >
                 {val >= 1000 ? `${Math.round(val / 1000)}k` : Math.round(val).toString()}
               </SvgText>
@@ -103,7 +106,7 @@ export default function BarChart({ width, height, labels, series }: Props) {
                 textAnchor="middle"
                 fontFamily={chartFontFamily}
                 fontSize={Typography.chart.axisLabel}
-                fill={Colors.textTertiary}
+                fill={c.textTertiary}
               >
                 {label}
               </SvgText>
@@ -112,11 +115,11 @@ export default function BarChart({ width, height, labels, series }: Props) {
         })}
       </Svg>
 
-      <View style={styles.legendRow}>
-        {series.map((s) => (
-          <View key={s.label} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: s.color }]} />
-            <Text style={styles.legendLabel}>{s.label}</Text>
+      <View style={s.legendRow}>
+        {series.map((ser) => (
+          <View key={ser.label} style={s.legendItem}>
+            <View style={[s.legendDot, { backgroundColor: ser.color }]} />
+            <Text style={s.legendLabel}>{ser.label}</Text>
           </View>
         ))}
       </View>
@@ -124,25 +127,26 @@ export default function BarChart({ width, height, labels, series }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 12,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-  },
-  legendLabel: {
-    fontSize: Typography.chart.legend,
-    color: Colors.textSecondary,
-  },
-});
+const createStyles = (c: ColorScheme) =>
+  StyleSheet.create({
+    legendRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 8,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 12,
+    },
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      marginRight: 6,
+    },
+    legendLabel: {
+      fontSize: Typography.chart.legend,
+      color: c.textSecondary,
+    },
+  });

@@ -1,81 +1,60 @@
-import { StyleSheet } from 'react-native';
-import { Colors } from './colors';
-import { Typography } from './typography';
+import { StyleSheet, Platform } from 'react-native';
+import { type ColorScheme } from './colors';
 
-// Shared layout for all app pages – typography from single source
-export const contentStyles = StyleSheet.create({
-  pageTitle: {
-    fontSize: Typography.pageTitle.fontSize,
-    fontWeight: Typography.pageTitle.fontWeight,
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: Typography.pageSubtitle.fontSize,
-    fontWeight: Typography.pageSubtitle.fontWeight,
-    color: Colors.textSecondary,
-    marginBottom: 24,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    marginBottom: 24,
-  },
-  cardTitle: {
-    fontSize: Typography.cardTitle.fontSize,
-    fontWeight: Typography.cardTitle.fontWeight,
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  cardSubtitle: {
-    fontSize: Typography.cardSubtitle.fontSize,
-    fontWeight: Typography.cardSubtitle.fontWeight,
-    color: Colors.textSecondary,
-    marginBottom: 16,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
-  },
-  kpiItem: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  kpiItemFirst: {
-    marginLeft: 0,
-  },
-  chartsRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
-  },
-  chartCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  chartCardSecond: {
-    marginLeft: 20,
-  },
-  donutContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  emptyState: {
-    padding: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyStateText: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-});
+const n = Platform.OS === 'ios' || Platform.OS === 'android';
+
+export function getContentStyles(c: ColorScheme) {
+  return StyleSheet.create({
+    pageTitle: {
+      fontSize: n ? 22 : 26,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: n ? 4 : 4,
+      letterSpacing: -0.5,
+    },
+    pageSubtitle: {
+      fontSize: 14,
+      fontWeight: '400',
+      color: c.textSecondary,
+      marginBottom: n ? 16 : 24,
+      lineHeight: 20,
+    },
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: n ? 16 : 22,
+      borderWidth: 1,
+      borderColor: c.cardBorder,
+      marginBottom: n ? 14 : 20,
+    },
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.text,
+      marginBottom: 2,
+    },
+    cardSubtitle: {
+      fontSize: 12,
+      fontWeight: '400',
+      color: c.textTertiary,
+      marginBottom: n ? 12 : 14,
+    },
+    kpiRow: {
+      flexDirection: n ? 'column' : 'row',
+      gap: n ? 10 : 12,
+      marginBottom: n ? 16 : 20,
+    },
+    kpiItem: {
+      flex: n ? 0 : 1,
+      marginLeft: 0,
+    },
+    kpiItemFirst: {
+      marginLeft: 0,
+    },
+    donutContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+    },
+  });
+}

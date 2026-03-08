@@ -1,8 +1,7 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
-import { Typography } from '../constants/typography';
+import { useColors } from '../context/ThemeContext';
 
 type Props = {
   userName: string;
@@ -10,161 +9,81 @@ type Props = {
   viewingLabel?: string;
   sidebarOpen?: boolean;
   onMenuPress?: () => void;
+  isNative?: boolean;
 };
 
-export default function TopBar({ userName, userRole, viewingLabel, sidebarOpen = true, onMenuPress }: Props) {
+export default function TopBar({ userName, viewingLabel, sidebarOpen = true, onMenuPress, isNative }: Props) {
+  const c = useColors();
+  const s = useMemo(() => createStyles(c), [c]);
+
+  if (isNative) {
+    return (
+      <View style={s.nativeBar}>
+        <Pressable style={s.nativeMenuBtn} onPress={onMenuPress} hitSlop={12} accessibilityLabel="Open menu">
+          <Feather name="menu" size={24} color={c.text} />
+        </Pressable>
+        <View style={s.nativeCenter}>
+          <Text style={s.nativeTitle} numberOfLines={1}>{viewingLabel ?? 'LeanLedger'}</Text>
+        </View>
+        <View style={s.nativeAvatar}>
+          <Text style={s.avatarText}>{(userName || 'U')[0].toUpperCase()}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.menuBtn} onPress={onMenuPress} accessibilityLabel={sidebarOpen ? 'Close menu' : 'Open menu'}>
-        <Feather name={sidebarOpen ? 'chevron-left' : 'menu'} size={22} color={Colors.text} />
+    <View style={s.container}>
+      <Pressable style={s.menuBtn} onPress={onMenuPress} accessibilityLabel={sidebarOpen ? 'Close menu' : 'Open menu'}>
+        <Feather name={sidebarOpen ? 'chevron-left' : 'menu'} size={20} color={c.text} />
       </Pressable>
       {viewingLabel ? (
-        <View style={styles.viewingChip}>
-          <Feather name="folder" size={14} color={Colors.primary} />
-          <Text style={styles.viewingText}>{viewingLabel}</Text>
+        <View style={s.viewingChip}>
+          <Feather name="calendar" size={14} color={c.primary} />
+          <Text style={s.viewingText}>{viewingLabel}</Text>
         </View>
       ) : null}
-      <View style={styles.searchContainer}>
-        <Feather name="search" size={18} color={Colors.textTertiary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search subscriptions, vendors, or insights..."
-          placeholderTextColor={Colors.textTertiary}
-        />
-      </View>
-
-      <View style={styles.actions}>
-        <Pressable style={styles.iconBtn}>
-          <Feather name="bell" size={20} color={Colors.textSecondary} />
-          <View style={styles.badge} />
-        </Pressable>
-        <Pressable style={styles.iconBtn}>
-          <Feather name="settings" size={20} color={Colors.textSecondary} />
-        </Pressable>
-
-        <View style={styles.divider} />
-
-        <View style={styles.profile}>
-          <View>
-            <Text style={styles.userName}>{userName}</Text>
-            <Text style={styles.userRole}>{userRole}</Text>
-          </View>
-          <View style={styles.avatar}>
-            <Feather name="user" size={20} color={Colors.textSecondary} />
-          </View>
+      <View style={s.spacer} />
+      <View style={s.profile}>
+        <Text style={s.greeting}>Hey, {userName}</Text>
+        <View style={s.avatar}>
+          <Text style={s.avatarText}>{(userName || 'U')[0].toUpperCase()}</Text>
         </View>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    height: 68,
-    backgroundColor: Colors.background,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  viewingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.inputBg,
-  },
-  viewingText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
-    marginLeft: 6,
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.inputBg,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxWidth: 480,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: Typography.body.fontSize,
-    color: Colors.text,
-    outlineStyle: 'none',
-  } as any,
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 'auto',
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
-  },
-  divider: {
-    width: 1,
-    height: 32,
-    backgroundColor: Colors.border,
-    marginHorizontal: 16,
-  },
-  profile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userName: {
-    fontSize: Typography.body.fontSize,
-    fontWeight: '600',
-    color: Colors.text,
-    textAlign: 'right',
-  },
-  userRole: {
-    fontSize: Typography.chart.legend,
-    color: Colors.textSecondary,
-    textAlign: 'right',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.inputBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-});
+function createStyles(c: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    nativeBar: {
+      height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
+      backgroundColor: c.background, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border,
+    },
+    nativeMenuBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    nativeCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
+    nativeTitle: { fontSize: 17, fontWeight: '600', color: c.text },
+    nativeAvatar: {
+      width: 32, height: 32, borderRadius: 16, backgroundColor: c.primaryLight,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    container: {
+      height: 60, backgroundColor: c.background, flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: c.border,
+    },
+    menuBtn: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    viewingChip: {
+      flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6,
+      borderRadius: 8, backgroundColor: c.primaryLight,
+    },
+    viewingText: { fontSize: 13, fontWeight: '600', color: c.primary, marginLeft: 6 },
+    spacer: { flex: 1 },
+    profile: { flexDirection: 'row', alignItems: 'center' },
+    greeting: { fontSize: 14, fontWeight: '500', color: c.textSecondary, marginRight: 10 },
+    avatar: {
+      width: 34, height: 34, borderRadius: 17, backgroundColor: c.primaryLight,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    avatarText: { fontSize: 14, fontWeight: '700', color: c.primary },
+  });
+}

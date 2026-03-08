@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "Team 7",
+    "name": "LeanLedger",
     "slug": "team-7",
     "version": "1.0.0",
+    "description": "For local shops, bakeries, and small businesses — simulate pricing, hiring, ads, and supplier decisions and see how they affect your sales, costs, and what you keep.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.samijaffri.team7"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +23,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.samijaffri.team7"
     },
     "web": {
       "favicon": "./assets/favicon.png"

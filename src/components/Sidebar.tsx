@@ -1,32 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
-import { Typography } from '../constants/typography';
+import { useColors, useTheme } from '../context/ThemeContext';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID } from '../context/WorkspaceContext';
 import NewWorkspaceModal from './NewWorkspaceModal';
 
-type NavItem = {
-  label: string;
-  key: string;
-  icon: keyof typeof Feather.glyphMap;
-};
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
+type NavItem = { label: string; key: string; icon: keyof typeof Feather.glyphMap };
 
 const mainNav: NavItem[] = [
-  { label: 'Home', key: 'Dashboard', icon: 'grid' },
-  { label: 'Recurring bills', key: 'Subscriptions', icon: 'file-text' },
-  { label: 'Unexpected price increases', key: 'Price Creep', icon: 'trending-up' },
-  { label: 'Where your money went', key: 'Spend Categories', icon: 'pie-chart' },
-  { label: 'Who you pay', key: 'Vendor Analytics', icon: 'bar-chart-2' },
-  { label: 'Negotiate & save', key: 'Vendor Negotiations', icon: 'phone-call' },
-  { label: 'Cancel duplicates', key: 'Automated Cancellation', icon: 'x-circle' },
-  { label: 'Ideas to save', key: 'AI Recommendations', icon: 'zap' },
-  { label: 'Your savings', key: 'Savings', icon: 'dollar-sign' },
-];
-
-const bottomNav: NavItem[] = [
-  { label: 'Notifications', key: 'Notifications', icon: 'bell' },
-  { label: 'Settings', key: 'Settings', icon: 'settings' },
+  { label: 'Home', key: 'Dashboard', icon: 'home' },
+  { label: 'Spending', key: 'Spending', icon: 'pie-chart' },
+  { label: 'Alerts', key: 'Alerts', icon: 'alert-circle' },
+  { label: 'What If', key: 'What If', icon: 'git-branch' },
 ];
 
 type Props = {
@@ -38,119 +25,111 @@ type Props = {
 
 export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: Props) {
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
+  const c = useColors();
+  const { isDark, toggle } = useTheme();
   const { workspaces, activeWorkspaceId, setActiveWorkspaceId, createWorkspace, overviewRange, setOverviewRange } = useWorkspace();
   const isAllMonths = activeWorkspaceId === OVERVIEW_ID;
-
-  const renderItem = (item: NavItem) => {
-    const isActive = item.key === activeItem;
-    return (
-      <Pressable
-        key={item.key}
-        style={[styles.navItem, isActive && styles.navItemActive]}
-        onPress={() => onItemPress?.(item.key)}
-      >
-        <Feather
-          name={item.icon}
-          size={20}
-          color={isActive ? Colors.sidebarActive : Colors.sidebarText}
-        />
-        <Text style={[styles.navLabel, isActive && styles.navLabelActive]} numberOfLines={1}>
-          {item.label}
-        </Text>
-      </Pressable>
-    );
-  };
+  const s = useMemo(() => createStyles(c), [c]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoSection}>
-        <View style={styles.logoIcon}>
-          <Text style={styles.logoLetter}>L</Text>
+    <View style={[s.container, isNative && s.containerNative]}>
+      <View style={[s.logoSection, isNative && s.logoSectionNative]}>
+        <View style={s.logoIcon}>
+          <Feather name="layers" size={isNative ? 20 : 18} color={c.primary} />
         </View>
-        <View style={styles.logoTextWrap}>
-          <Text style={styles.logoTitle}>LeanLedger</Text>
-          <Text style={styles.logoSubtitle}>Track spending, find savings</Text>
+        <View style={s.logoTextWrap}>
+          <Text style={s.logoTitle}>LeanLedger</Text>
+          <Text style={s.logoSubtitle}>Business finances</Text>
         </View>
+        {isNative && onClose && (
+          <Pressable onPress={onClose} style={s.closeBtn}>
+            <Feather name="x" size={22} color={c.sidebarText} />
+          </Pressable>
+        )}
       </View>
 
-      <View style={styles.workspaceSection}>
-        <Text style={styles.workspaceSectionTitle}>Your months</Text>
-        <ScrollView style={styles.workspaceList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+      <View style={[s.workspaceSection, isNative && s.workspaceSectionNative]}>
+        <Text style={s.sectionLabel}>MONTHS</Text>
+        <ScrollView style={s.workspaceList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <Pressable
-            style={[styles.workspaceItem, isAllMonths && styles.workspaceItemActive]}
+            style={[s.workspaceItem, isAllMonths && s.workspaceItemActive]}
             onPress={() => setActiveWorkspaceId(OVERVIEW_ID)}
           >
-            <Feather
-              name="layers"
-              size={16}
-              color={isAllMonths ? Colors.sidebarActive : Colors.sidebarText}
-            />
-            <Text style={[styles.workspaceLabel, isAllMonths && styles.workspaceLabelActive]} numberOfLines={1}>
-              All months
-            </Text>
+            <Feather name="layers" size={14} color={isAllMonths ? c.primary : c.sidebarText} />
+            <Text style={[s.workspaceLabel, isAllMonths && s.workspaceLabelActive]}>All months</Text>
           </Pressable>
           {isAllMonths && (
-            <View style={styles.rangeFilter}>
-              <Pressable style={[styles.rangeChip, overviewRange === 'all' && styles.rangeChipActive]} onPress={() => setOverviewRange('all')}>
-                <Text style={[styles.rangeChipText, overviewRange === 'all' && styles.rangeChipTextActive]}>All</Text>
-              </Pressable>
-              <Pressable style={[styles.rangeChip, overviewRange === 'last3' && styles.rangeChipActive]} onPress={() => setOverviewRange('last3')}>
-                <Text style={[styles.rangeChipText, overviewRange === 'last3' && styles.rangeChipTextActive]}>Last 3</Text>
-              </Pressable>
-              <Pressable style={[styles.rangeChip, overviewRange === 'last6' && styles.rangeChipActive]} onPress={() => setOverviewRange('last6')}>
-                <Text style={[styles.rangeChipText, overviewRange === 'last6' && styles.rangeChipTextActive]}>Last 6</Text>
-              </Pressable>
+            <View style={s.rangeFilter}>
+              {(['all', 'last3', 'last6'] as const).map((range) => (
+                <Pressable
+                  key={range}
+                  style={[s.rangeChip, overviewRange === range && s.rangeChipActive]}
+                  onPress={() => setOverviewRange(range)}
+                >
+                  <Text style={[s.rangeChipText, overviewRange === range && s.rangeChipTextActive]}>
+                    {range === 'all' ? 'All' : range === 'last3' ? 'Last 3' : 'Last 6'}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           )}
           {workspaces.map((w) => {
-            const isActive = w.id === activeWorkspaceId;
+            const active = w.id === activeWorkspaceId;
             return (
               <Pressable
                 key={w.id}
-                style={[styles.workspaceItem, isActive && styles.workspaceItemActive]}
+                style={[s.workspaceItem, active && s.workspaceItemActive]}
                 onPress={() => setActiveWorkspaceId(w.id)}
               >
-                <Feather
-                  name="folder"
-                  size={16}
-                  color={isActive ? Colors.sidebarActive : Colors.sidebarText}
-                />
-                <Text style={[styles.workspaceLabel, isActive && styles.workspaceLabelActive]} numberOfLines={1}>
-                  {workspaceLabel(w)}
-                </Text>
-                {isActive && <Text style={styles.workspaceBadge}>${Number(w.total_saved).toLocaleString()}</Text>}
+                <Feather name="calendar" size={14} color={active ? c.primary : c.sidebarText} />
+                <Text style={[s.workspaceLabel, active && s.workspaceLabelActive]}>{workspaceLabel(w)}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
-        <Pressable style={styles.newWorkspaceBtn} onPress={() => setShowNewWorkspace(true)}>
-          <Feather name="plus" size={16} color={Colors.primary} />
-          <Text style={styles.newWorkspaceText}>Add a month</Text>
+        <Pressable style={s.addMonthBtn} onPress={() => setShowNewWorkspace(true)}>
+          <Feather name="plus" size={14} color={c.primary} />
+          <Text style={s.addMonthText}>Add a month</Text>
         </Pressable>
       </View>
 
-      <ScrollView
-        style={styles.mainNavScroll}
-        contentContainerStyle={styles.mainNavScrollContent}
-        showsVerticalScrollIndicator={true}
-        bounces={false}
-      >
-        {mainNav.map(renderItem)}
-      </ScrollView>
-
-      <View style={styles.bottomNav}>
-        {bottomNav.map(renderItem)}
-        {onClose && (
-          <Pressable style={styles.navItem} onPress={onClose}>
-            <Feather name="chevron-left" size={20} color={Colors.sidebarText} />
-            <Text style={styles.navLabel}>Hide menu</Text>
+      <Text style={s.sectionLabel}>MENU</Text>
+      {mainNav.map((item) => {
+        const isActive = item.key === activeItem;
+        return (
+          <Pressable
+            key={item.key}
+            onPress={() => onItemPress?.(item.key)}
+            style={({ pressed }) => [
+              s.navItem,
+              isNative && s.navItemNative,
+              isActive && s.navItemActive,
+              pressed && s.navItemPressed,
+            ]}
+          >
+            <Feather
+              name={item.icon}
+              size={isNative ? 20 : 18}
+              color={isActive ? c.primary : c.sidebarText}
+            />
+            <Text style={[s.navLabel, isNative && s.navLabelNative, isActive && s.navLabelActive]}>
+              {item.label}
+            </Text>
           </Pressable>
-        )}
-        <Pressable style={styles.navItem} onPress={onLogout}>
-          <Feather name="log-out" size={20} color={Colors.sidebarText} />
-          <Text style={styles.navLabel}>Log Out</Text>
-        </Pressable>
-      </View>
+        );
+      })}
+
+      <View style={s.spacer} />
+
+      <Pressable style={s.themeBtn} onPress={toggle}>
+        <Feather name={isDark ? 'sun' : 'moon'} size={16} color={c.sidebarText} />
+        <Text style={s.themeBtnText}>{isDark ? 'Light mode' : 'Dark mode'}</Text>
+      </Pressable>
+
+      <Pressable style={[s.logoutBtn, isNative && s.logoutBtnNative]} onPress={onLogout}>
+        <Feather name="log-out" size={isNative ? 20 : 16} color={c.sidebarText} />
+        <Text style={s.logoutText}>Log out</Text>
+      </Pressable>
 
       <NewWorkspaceModal
         visible={showNewWorkspace}
@@ -161,160 +140,65 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    width: 200,
-    flex: 1,
-    backgroundColor: Colors.sidebar,
-    paddingVertical: 20,
-    paddingHorizontal: 12,
-    borderRightWidth: 1,
-    borderRightColor: Colors.border,
-  },
-  rangeFilter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginLeft: 24,
-    marginBottom: 8,
-  },
-  rangeChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: Colors.inputBg,
-  },
-  rangeChipActive: {
-    backgroundColor: Colors.sidebarActiveBg,
-  },
-  rangeChipText: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-  },
-  rangeChipTextActive: {
-    color: Colors.sidebarActive,
-    fontWeight: '600',
-  },
-  logoSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  logoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.sidebarActive,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  logoTextWrap: { flex: 1, minWidth: 0 },
-  logoLetter: {
-    color: Colors.sidebarActive,
-    fontSize: Typography.cardTitle.fontSize,
-    fontWeight: '700',
-  },
-  logoTitle: {
-    color: Colors.sidebarActive,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  logoSubtitle: {
-    color: Colors.sidebarText,
-    fontSize: 11,
-    marginTop: 1,
-  },
-  workspaceSection: {
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  workspaceSectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textTertiary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  workspaceList: {
-    maxHeight: 140,
-  },
-  workspaceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    marginBottom: 2,
-  },
-  workspaceItemActive: {
-    backgroundColor: Colors.sidebarActiveBg,
-  },
-  workspaceLabel: {
-    fontSize: 12,
-    color: Colors.sidebarText,
-    marginLeft: 6,
-    flex: 1,
-  },
-  workspaceLabelActive: {
-    color: Colors.sidebarActive,
-    fontWeight: '500',
-  },
-  workspaceBadge: {
-    fontSize: 11,
-    color: Colors.success,
-    fontWeight: '600',
-  },
-  newWorkspaceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginTop: 4,
-  },
-  newWorkspaceText: {
-    fontSize: 13,
-    color: Colors.primary,
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  mainNavScroll: {
-    flex: 1,
-    minHeight: 0,
-  },
-  mainNavScrollContent: {
-    paddingBottom: 16,
-  },
-  bottomNav: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 16,
-    flexShrink: 0,
-  },
-  navItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 2,
-  },
-  navItemActive: {
-    backgroundColor: Colors.sidebarActiveBg,
-  },
-  navLabel: {
-    color: Colors.sidebarText,
-    fontSize: 13,
-    marginLeft: 10,
-    fontWeight: '500',
-    flex: 1,
-  },
-  navLabelActive: {
-    color: Colors.sidebarActive,
-  },
-});
+function createStyles(c: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    container: {
+      width: '100%', minWidth: 200, flex: 1, backgroundColor: c.sidebar,
+      paddingVertical: 20, paddingHorizontal: 14, borderRightWidth: 1, borderRightColor: c.border,
+    },
+    containerNative: { paddingTop: 8, paddingBottom: 12, paddingHorizontal: 16, borderRightWidth: 0 },
+    logoSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingHorizontal: 4 },
+    logoSectionNative: { marginBottom: 20, paddingTop: 4 },
+    logoIcon: {
+      width: 36, height: 36, borderRadius: 10, backgroundColor: c.primaryLight,
+      alignItems: 'center', justifyContent: 'center', marginRight: 10,
+    },
+    logoTextWrap: { flex: 1, minWidth: 0 },
+    logoTitle: { color: c.text, fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
+    logoSubtitle: { color: c.textTertiary, fontSize: 11, marginTop: 1 },
+    closeBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    sectionLabel: {
+      fontSize: 10, fontWeight: '700', color: c.textTertiary,
+      letterSpacing: 1.2, marginBottom: 8, paddingHorizontal: 8,
+    },
+    workspaceSection: { marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+    workspaceSectionNative: { marginBottom: 20, paddingBottom: 16 },
+    workspaceList: { maxHeight: 140 },
+    workspaceItem: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8,
+      borderRadius: 8, marginBottom: 2,
+    },
+    workspaceItemActive: { backgroundColor: c.primaryLight },
+    workspaceLabel: { fontSize: 12, color: c.sidebarText, marginLeft: 8, flex: 1 },
+    workspaceLabelActive: { color: c.primary, fontWeight: '600' },
+    rangeFilter: { flexDirection: 'row', gap: 4, marginLeft: 28, marginBottom: 6 },
+    rangeChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: c.inputBg },
+    rangeChipActive: { backgroundColor: c.primaryLight },
+    rangeChipText: { fontSize: 11, color: c.textTertiary },
+    rangeChipTextActive: { color: c.primary, fontWeight: '600' },
+    addMonthBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8, marginTop: 4 },
+    addMonthText: { fontSize: 12, color: c.primary, marginLeft: 6, fontWeight: '500' },
+    navItem: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10,
+      borderRadius: 10, marginBottom: 2,
+    },
+    navItemNative: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, marginBottom: 4 },
+    navItemActive: { backgroundColor: c.primaryLight },
+    navItemPressed: { opacity: 0.7 },
+    navLabel: { color: c.sidebarText, fontSize: 13, fontWeight: '600', marginLeft: 10 },
+    navLabelNative: { fontSize: 16, marginLeft: 14 },
+    navLabelActive: { color: c.primary },
+    spacer: { flex: 1 },
+    themeBtn: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10,
+      borderRadius: 8, marginBottom: 4,
+    },
+    themeBtnText: { color: c.sidebarText, fontSize: 12, marginLeft: 8, fontWeight: '500' },
+    logoutBtn: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8,
+      borderRadius: 8, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 12,
+    },
+    logoutBtnNative: { paddingVertical: 14, paddingHorizontal: 10 },
+    logoutText: { color: c.sidebarText, fontSize: 13, marginLeft: 10, fontWeight: '500' },
+  });
+}

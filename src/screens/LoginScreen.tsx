@@ -1,21 +1,10 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 
-type Props = {
-  onDemoPress?: () => void;
-};
+type Props = { onDemoPress?: () => void };
 
 export default function LoginScreen({ onDemoPress }: Props) {
   const [email, setEmail] = useState('');
@@ -24,129 +13,57 @@ export default function LoginScreen({ onDemoPress }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const c = useColors();
+  const s = useMemo(() => createStyles(c), [c]);
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
   const handleAuth = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError('Please enter both email and password.');
-      return;
-    }
-    if (!supabase) {
-      setError('Supabase is not configured. Check your .env file.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setMessage('');
-
-    if (isSignUp) {
-      const { error: err } = await supabase.auth.signUp({ email, password });
-      if (err) setError(err.message);
-      else setMessage('Check your email for a confirmation link!');
-    } else {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) setError(err.message);
-    }
-
+    if (!email.trim() || !password.trim()) { setError('Please enter both email and password.'); return; }
+    if (!supabase) { setError('Supabase is not configured.'); return; }
+    setLoading(true); setError(''); setMessage('');
+    if (isSignUp) { const { error: e } = await supabase.auth.signUp({ email, password }); e ? setError(e.message) : setMessage('Check your email!'); }
+    else { const { error: e } = await supabase.auth.signInWithPassword({ email, password }); if (e) setError(e.message); }
     setLoading(false);
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
-        <View style={styles.card}>
-          <View style={styles.logoRow}>
-            <View style={styles.logoIcon}>
-              <Text style={styles.logoLetter}>F</Text>
-            </View>
+    <KeyboardAvoidingView style={s.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={s.container}>
+        <View style={[s.card, isNative && s.cardNative]}>
+          <View style={s.logoRow}>
+            <View style={s.logoIcon}><Feather name="layers" size={24} color={c.primary} /></View>
           </View>
-          <Text style={styles.brand}>LeanLedger</Text>
-          <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Sign in — track your spending and find savings'}
-          </Text>
+          <Text style={s.brand}>LeanLedger</Text>
+          <Text style={s.subtitle}>{isSignUp ? 'Create your account' : 'Business finances, simplified'}</Text>
 
-          {error !== '' && (
-            <View style={styles.errorBox}>
-              <Feather name="alert-circle" size={16} color={Colors.danger} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-          {message !== '' && (
-            <View style={styles.successBox}>
-              <Feather name="check-circle" size={16} color={Colors.success} />
-              <Text style={styles.successText}>{message}</Text>
-            </View>
-          )}
+          {error !== '' && <View style={s.errorBox}><Feather name="alert-circle" size={16} color={c.danger} /><Text style={s.errorText}>{error}</Text></View>}
+          {message !== '' && <View style={s.successBox}><Feather name="check-circle" size={16} color={c.success} /><Text style={s.successText}>{message}</Text></View>}
 
-          <Text style={styles.label}>Email</Text>
-          <View style={styles.inputWrapper}>
-            <Feather name="mail" size={18} color={Colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@company.com"
-              placeholderTextColor={Colors.textTertiary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
+          <Text style={s.label}>Email</Text>
+          <View style={s.inputWrap}>
+            <Feather name="mail" size={16} color={c.textTertiary} style={{ marginRight: 8 }} />
+            <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder="you@company.com" placeholderTextColor={c.textTertiary} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
+          </View>
+          <Text style={s.label}>Password</Text>
+          <View style={s.inputWrap}>
+            <Feather name="lock" size={16} color={c.textTertiary} style={{ marginRight: 8 }} />
+            <TextInput style={s.input} value={password} onChangeText={setPassword} placeholder="Enter your password" placeholderTextColor={c.textTertiary} secureTextEntry={!showPw} autoCapitalize="none" />
+            <Pressable onPress={() => setShowPw(!showPw)} style={{ padding: 4 }}><Feather name={showPw ? 'eye-off' : 'eye'} size={16} color={c.textTertiary} /></Pressable>
           </View>
 
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputWrapper}>
-            <Feather name="lock" size={18} color={Colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
-              placeholderTextColor={Colors.textTertiary}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-              <Feather
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={18}
-                color={Colors.textTertiary}
-              />
-            </Pressable>
-          </View>
-
-          <Pressable
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={Colors.primary} />
-            ) : (
-              <Text style={styles.buttonText}>{isSignUp ? 'Create Account' : 'Sign In'}</Text>
-            )}
+          <Pressable style={[s.button, loading && s.buttonDisabled]} onPress={handleAuth} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>{isSignUp ? 'Create Account' : 'Sign In'}</Text>}
           </Pressable>
-
           <Pressable onPress={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}>
-            <Text style={styles.toggle}>
-              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-              <Text style={styles.toggleBold}>{isSignUp ? 'Sign In' : 'Sign Up'}</Text>
-            </Text>
+            <Text style={s.toggle}>{isSignUp ? 'Already have an account? ' : "Don't have an account? "}<Text style={s.toggleBold}>{isSignUp ? 'Sign In' : 'Sign Up'}</Text></Text>
           </Pressable>
 
           {onDemoPress && (
             <>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <Pressable style={styles.demoButton} onPress={onDemoPress}>
-                <Feather name="play" size={16} color={Colors.textSecondary} />
-                <Text style={styles.demoButtonText}>Try it without signing in</Text>
+              <View style={s.divider}><View style={s.dividerLine} /><Text style={s.dividerText}>or</Text><View style={s.dividerLine} /></View>
+              <Pressable style={s.demoBtn} onPress={onDemoPress}>
+                <Feather name="play" size={14} color={c.primary} /><Text style={s.demoBtnText}>Try the demo</Text>
               </Pressable>
             </>
           )}
@@ -156,170 +73,32 @@ export default function LoginScreen({ onDemoPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { flex: 1 },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: Colors.card,
-    borderRadius: 20,
-    padding: 40,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  logoRow: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoLetter: {
-    color: Colors.primary,
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  brand: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.text,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 28,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 6,
-    marginTop: 16,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.inputBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: Colors.text,
-    outlineStyle: 'none',
-  } as any,
-  eyeBtn: {
-    padding: 4,
-  },
-  button: {
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 28,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  toggle: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
-  toggleBold: {
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 13,
-    color: Colors.textTertiary,
-  },
-  demoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: 'transparent',
-  },
-  demoButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 4,
-  },
-  errorText: {
-    color: Colors.danger,
-    fontSize: 13,
-    marginLeft: 8,
-    flex: 1,
-  },
-  successBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16,185,129,0.08)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 4,
-  },
-  successText: {
-    color: Colors.success,
-    fontSize: 13,
-    marginLeft: 8,
-    flex: 1,
-  },
-});
+function createStyles(c: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    wrapper: { flex: 1 },
+    container: { flex: 1, backgroundColor: c.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
+    card: { width: '100%', maxWidth: 400, backgroundColor: c.card, borderRadius: 20, padding: 36, borderWidth: 1, borderColor: c.cardBorder },
+    cardNative: { padding: 24, borderRadius: 16 },
+    logoRow: { alignItems: 'center', marginBottom: 16 },
+    logoIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' },
+    brand: { fontSize: 22, fontWeight: '700', color: c.text, textAlign: 'center', marginBottom: 4, letterSpacing: -0.3 },
+    subtitle: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 28 },
+    label: { fontSize: 13, fontWeight: '600', color: c.text, marginBottom: 6, marginTop: 14 },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.inputBg, borderRadius: 10, borderWidth: 1, borderColor: c.border, paddingHorizontal: 12 },
+    input: { flex: 1, paddingVertical: 12, fontSize: 14, color: c.text, outlineStyle: 'none' } as any,
+    button: { backgroundColor: c.primary, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
+    buttonDisabled: { opacity: 0.5 },
+    buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+    toggle: { textAlign: 'center', marginTop: 16, fontSize: 13, color: c.textSecondary },
+    toggleBold: { color: c.primary, fontWeight: '600' },
+    divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 14 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: c.border },
+    dividerText: { marginHorizontal: 12, fontSize: 12, color: c.textTertiary },
+    demoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, backgroundColor: c.primaryLight },
+    demoBtnText: { color: c.primary, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+    errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.dangerLight, borderRadius: 10, padding: 12, marginBottom: 4 },
+    errorText: { color: c.danger, fontSize: 13, marginLeft: 8, flex: 1 },
+    successBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.successLight, borderRadius: 10, padding: 12, marginBottom: 4 },
+    successText: { color: c.success, fontSize: 13, marginLeft: 8, flex: 1 },
+  });
+}

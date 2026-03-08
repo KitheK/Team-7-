@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
+import type { ColorScheme } from '../constants/colors';
 
 type Props = {
   onFile: (text: string, fileName: string) => void;
@@ -10,6 +11,8 @@ type Props = {
 };
 
 export default function UploadZone({ onFile, accept = '.csv', disabled }: Props) {
+  const c = useColors();
+  const s = useMemo(() => createStyles(c), [c]);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -38,7 +41,7 @@ export default function UploadZone({ onFile, accept = '.csv', disabled }: Props)
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={s.wrap}>
       {Platform.OS === 'web' && (
         <input
           ref={setInputRef}
@@ -53,56 +56,57 @@ export default function UploadZone({ onFile, accept = '.csv', disabled }: Props)
         />
       )}
       <Pressable
-        style={[styles.zone, disabled && styles.zoneDisabled]}
+        style={[s.zone, disabled && s.zoneDisabled]}
         onPress={handlePress}
         disabled={disabled}
       >
-        <Feather name="upload-cloud" size={32} color={Colors.primary} />
-        <Text style={styles.zoneText}>Add your bank or card statement</Text>
-        <Text style={styles.zoneSub}>Tap to choose a CSV file (export from your bank or spreadsheet)</Text>
+        <Feather name="upload-cloud" size={32} color={c.primary} />
+        <Text style={s.zoneText}>Add your bank or card statement</Text>
+        <Text style={s.zoneSub}>Tap to choose a CSV file (export from your bank or spreadsheet)</Text>
       </Pressable>
       {error && (
-        <View style={styles.errorRow}>
-          <Feather name="alert-circle" size={14} color={Colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={s.errorRow}>
+          <Feather name="alert-circle" size={14} color={c.danger} />
+          <Text style={s.errorText}>{error}</Text>
         </View>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { marginBottom: 16 },
-  zone: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: Colors.border,
-    borderRadius: 12,
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.inputBg,
-  },
-  zoneDisabled: { opacity: 0.5 },
-  zoneText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
-    marginTop: 12,
-  },
-  zoneSub: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  errorText: {
-    fontSize: 13,
-    color: Colors.danger,
-    marginLeft: 6,
-  },
-});
+const createStyles = (c: ColorScheme) =>
+  StyleSheet.create({
+    wrap: { marginBottom: 16 },
+    zone: {
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderColor: c.border,
+      borderRadius: 12,
+      padding: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.inputBg,
+    },
+    zoneDisabled: { opacity: 0.5 },
+    zoneText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.text,
+      marginTop: 12,
+    },
+    zoneSub: {
+      fontSize: 12,
+      color: c.textSecondary,
+      marginTop: 4,
+    },
+    errorRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    errorText: {
+      fontSize: 13,
+      color: c.danger,
+      marginLeft: 6,
+    },
+  });
