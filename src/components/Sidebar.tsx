@@ -16,6 +16,7 @@ type NavItem = {
 
 const mainNav: NavItem[] = [
   { label: 'Home', key: 'Dashboard', icon: 'grid' },
+  { label: 'Shadow Market', key: 'Shadow Market', icon: 'activity' },
   { label: 'Recurring bills', key: 'Subscriptions', icon: 'file-text' },
   { label: 'Unexpected price increases', key: 'Price Creep', icon: 'trending-up' },
   { label: 'Where your money went', key: 'Spend Categories', icon: 'pie-chart' },
@@ -71,7 +72,7 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
         </View>
         <View style={styles.logoTextWrap}>
           <Text style={styles.logoTitle}>LeanLedger</Text>
-          <Text style={styles.logoSubtitle}>Track spending, find savings</Text>
+          <Text style={styles.logoSubtitle}>For your shop — run the numbers, see the impact</Text>
         </View>
       </View>
 

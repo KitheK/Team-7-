@@ -68,7 +68,7 @@ export default function LoginScreen({ onDemoPress }: Props) {
           </View>
           <Text style={styles.brand}>LeanLedger</Text>
           <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Sign in — track your spending and find savings'}
+            {isSignUp ? 'Create your account' : 'Sign in — for local shops & small businesses'}
           </Text>
 
           {error !== '' && (

@@ -76,15 +76,15 @@ export default function DashboardContent() {
       <Text style={contentStyles.pageTitle}>Home</Text>
       <Text style={contentStyles.pageSubtitle}>
         {isOverview
-          ? "See all your spending in one place. Tap the menu to pick a month."
+          ? "Your shop's costs in one place. Add bank or card statements, or try Shadow Market to simulate decisions."
           : activeWorkspace
             ? `${workspaceLabel(activeWorkspace)} — add your statement below.`
-            : "Tap the menu to pick a month, or choose \"All months\"."}
+            : "Pick a month or All months, then add your data."}
       </Text>
 
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>
-          {isOverview ? 'Total spending in view' : 'Spending this month'}
+          {isOverview ? 'Total costs in view' : 'Costs this month'}
         </Text>
         <Text style={styles.totalValue}>${viewTotal.toLocaleString()}</Text>
       </View>

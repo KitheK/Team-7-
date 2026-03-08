@@ -18,10 +18,12 @@ import VendorNegotiationsContent from './src/screens/VendorNegotiationsContent';
 import AutomatedCancellationContent from './src/screens/AutomatedCancellationContent';
 import AIRecommendationsContent from './src/screens/AIRecommendationsContent';
 import SavingsContent from './src/screens/SavingsContent';
+import ShadowMarketContent from './src/screens/ShadowMarketContent';
 import { Colors } from './src/constants/colors';
 
 const PAGE_CONTENT: Record<string, React.ReactNode> = {
   Dashboard: <DashboardContent />,
+  'Shadow Market': <ShadowMarketContent />,
   Subscriptions: <SubscriptionsContent />,
   'Price Creep': <PriceCreepContent />,
   'Spend Categories': <SpendCategoriesContent />,
