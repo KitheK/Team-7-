@@ -154,7 +154,11 @@ export default function DashboardContent({ onOpenMonth }: Props) {
                 <View style={s.monthBody}>
                   <View style={s.monthLeft}>
                     <Typography variant="h1" style={s.monthSpend}>
-                      {card.workspace ? `$${card.trackedSpend.toLocaleString()}` : '--'}
+                      {card.workspace
+                        ? isNative && card.trackedSpend >= 1000
+                          ? `$${(card.trackedSpend / 1000).toFixed(card.trackedSpend >= 10000 ? 0 : 1)}K`
+                          : `$${card.trackedSpend.toLocaleString()}`
+                        : '--'}
                     </Typography>
                     <Typography variant="caption" tone="secondary">
                       {card.workspace ? 'spent this month' : 'no data yet'}
@@ -203,8 +207,8 @@ function createStyles(c: ReturnType<typeof useColors>) {
       flexDirection: isNative ? 'column' : 'row',
       alignItems: 'center',
       justifyContent: isNative ? 'center' : ('space-between' as const),
-      marginBottom: 18,
-      gap: isNative ? 16 : 0,
+      marginBottom: isNative ? 20 : 18,
+      gap: isNative ? 12 : 0,
     },
     heroLeft: {
       flex: isNative ? 0 : 1,
@@ -237,6 +241,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
       alignItems: 'center',
       justifyContent: isNative ? 'center' : ('flex-end' as const),
       gap: 8,
+      marginTop: isNative ? 4 : 0,
     },
     heroBubble: {
       borderWidth: 2,
@@ -265,7 +270,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     heroBubbleValue: {
       fontSize: isNative ? 20 : 24,
-      fontFamily: 'Jost_700Bold',
+      fontFamily: 'Jost_400Regular',
       color: c.text,
       letterSpacing: -0.5,
     },
@@ -278,10 +283,16 @@ function createStyles(c: ReturnType<typeof useColors>) {
     yearChipHover: { borderColor: c.textSecondary, transform: [{ translateY: -1 }] },
     yearChipText: { color: c.textSecondary, fontFamily: 'Jost_500Medium', letterSpacing: 0.3 },
     yearChipTextActive: { color: c.primary, fontFamily: 'Jost_700Bold' },
-    monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 20 },
-    monthCardWrap: { width: isNative ? '48%' : '23.5%', minWidth: isNative ? undefined : 200 },
+    monthGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: isNative ? 12 : 14,
+      marginBottom: 20,
+      justifyContent: isNative ? 'center' : ('center' as const),
+    },
+    monthCardWrap: { width: isNative ? '100%' : '23.5%', minWidth: isNative ? undefined : 200 },
     monthCardWrapHovered: { transform: [{ translateY: -4 }] },
-    monthCard: { borderRadius: 10, minHeight: isNative ? 150 : 170 },
+    monthCard: { borderRadius: 12, minHeight: isNative ? 140 : 170 },
     monthCardActive: { borderColor: c.primaryLight },
     monthCardSelected: { borderColor: c.primary, borderWidth: 1.5 },
     monthCardHovered: {
@@ -297,7 +308,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1,
     },
     monthLeft: { flex: 1, minWidth: 0, marginRight: 10 },
-    monthSpend: { letterSpacing: -0.3, marginBottom: 2, fontSize: isNative ? 20 : 24, fontFamily: 'Jost_700Bold' },
+    monthSpend: { letterSpacing: -0.3, marginBottom: 2, fontSize: isNative ? 20 : 24, fontFamily: 'Jost_400Regular' },
     monthCircle: {
       borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', position: 'relative' as const,
     },

@@ -118,7 +118,7 @@ const createStyles = (c: ColorScheme) =>
     summaryItem: {},
     summaryValue: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: '400',
       color: c.text,
     },
     summaryLabel: {
@@ -179,7 +179,7 @@ const createStyles = (c: ColorScheme) =>
     },
     cellVendor: { flex: 1.5, minWidth: 0 },
     cellDate: { flex: 0.6, width: 90 },
-    cellAmount: { flex: 0.5, textAlign: 'right', fontWeight: '600', color: c.text },
+    cellAmount: { flex: 0.5, textAlign: 'right', fontWeight: '400', color: c.text },
     more: {
       fontSize: 12,
       color: c.textTertiary,

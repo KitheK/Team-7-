@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Linking, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Linking, Animated, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
 import { getContentStyles } from '../constants/contentStyles';
@@ -10,6 +10,35 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import type { Opportunity } from '../types/opportunity';
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
+function buildCancellationEmailBody(
+  companyOrService: string,
+  category: string,
+  monthlyAmount: number,
+  chargeCount: number
+): string {
+  const period = chargeCount > 1 ? ` (${chargeCount} charges in this period)` : '';
+  return `Hello,
+
+I am writing to request cancellation of my ${companyOrService} subscription${period}.
+
+${category ? `This is for the ${category} plan. ` : ''}${monthlyAmount > 0 ? `My current plan is billed at $${monthlyAmount.toLocaleString()}/month. ` : ''}I would like to cancel effective at the end of my current billing period (or as soon as your process allows).
+
+Please confirm once the cancellation has been processed and let me know if any further steps are required on my side.
+
+Thank you,
+[Your name]`;
+}
+
+type AlertRow = {
+  vendor: string;
+  amount: number;
+  count: number;
+  message: string;
+  category: string;
+  isDuplicate: boolean;
+  isPriceCreep: boolean;
+};
 
 function RewardFlash({ active, color }: { active: boolean; color: string }) {
   const scale = useRef(new Animated.Value(0)).current;
@@ -416,7 +445,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     colCircleValue: {
       fontSize: isNative ? 20 : 24,
-      fontFamily: 'Jost_700Bold',
+      fontFamily: 'Jost_400Regular',
       color: c.text,
       letterSpacing: -0.5,
     },

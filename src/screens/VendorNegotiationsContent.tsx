@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     fontSize: 26,
-    fontWeight: '700',
+    fontWeight: '400',
     color: Colors.text,
     marginTop: 10,
     marginBottom: 4,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   },
   negNum: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.text,
   },
   savings: { color: '#22c55e' },

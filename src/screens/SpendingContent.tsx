@@ -370,7 +370,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     statValue: {
       fontSize: isNative ? 18 : 22,
-      fontFamily: 'Jost_700Bold',
+      fontFamily: 'Jost_400Regular',
       letterSpacing: -0.3,
       marginBottom: 2,
     },
@@ -481,7 +481,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     },
     breakdownValue: {
       fontSize: 13,
-      fontFamily: 'Jost_700Bold',
+      fontFamily: 'Jost_400Regular',
       color: c.text,
       minWidth: 70,
       textAlign: 'right',
