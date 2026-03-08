@@ -21,7 +21,7 @@ function getBaseline(viewTotal: number, isDemoMode: boolean): BaselineMetrics {
 
 const DEFAULTS: ScenarioInputs = { priceChangePercent: 0, marketingChangePercent: 0, newEmployeeCost: 0, vendorSwitchSavings: 0, subscriptionCancelSavings: 0 };
 
-export default function WhatIfContent() {
+export default function WhatIfContent({ embedded = false }: { embedded?: boolean }) {
   const { activeWorkspaceTransactions, isDemoMode } = useWorkspace();
   const c = useColors();
   const cs = useMemo(() => getContentStyles(c), [c]);
@@ -59,8 +59,12 @@ export default function WhatIfContent() {
 
   return (
     <>
-      <Text style={cs.pageTitle}>What If</Text>
-      <Text style={cs.pageSubtitle}>Simulate decisions before you make them.</Text>
+      {!embedded && (
+        <>
+          <Text style={cs.pageTitle}>What If</Text>
+          <Text style={cs.pageSubtitle}>Simulate decisions before you make them.</Text>
+        </>
+      )}
 
       <View style={s.baselineRow}>
         {[{ l: 'Revenue / mo', v: baseline.revenue, clr: c.chart[0] }, { l: 'Expenses / mo', v: baseline.expenses, clr: c.chart[2] }, { l: 'Profit / mo', v: baseline.profit, clr: c.success }].map(b => (

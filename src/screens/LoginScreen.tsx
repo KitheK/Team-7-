@@ -34,7 +34,7 @@ export default function LoginScreen({ onDemoPress }: Props) {
           <View style={s.logoRow}>
             <View style={s.logoIcon}><Feather name="layers" size={24} color={c.primary} /></View>
           </View>
-          <Text style={s.brand}>LeanLedger</Text>
+          <Text style={s.brand}>Alfred</Text>
           <Text style={s.subtitle}>{isSignUp ? 'Create your account' : 'Business finances, simplified'}</Text>
 
           {error !== '' && <View style={s.errorBox}><Feather name="alert-circle" size={16} color={c.danger} /><Text style={s.errorText}>{error}</Text></View>}
@@ -81,21 +81,21 @@ function createStyles(c: ReturnType<typeof useColors>) {
     cardNative: { padding: 24, borderRadius: 16 },
     logoRow: { alignItems: 'center', marginBottom: 16 },
     logoIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' },
-    brand: { fontSize: 22, fontWeight: '700', color: c.text, textAlign: 'center', marginBottom: 4, letterSpacing: -0.3 },
+    brand: { fontSize: 32, fontFamily: 'PlayfairDisplay_700Bold', color: c.text, textAlign: 'center', marginBottom: 4, letterSpacing: 0.5 },
     subtitle: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 28 },
-    label: { fontSize: 13, fontWeight: '600', color: c.text, marginBottom: 6, marginTop: 14 },
+    label: { fontSize: 13, fontFamily: 'Jost_500Medium', color: c.text, marginBottom: 6, marginTop: 14 },
     inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.inputBg, borderRadius: 10, borderWidth: 1, borderColor: c.border, paddingHorizontal: 12 },
     input: { flex: 1, paddingVertical: 12, fontSize: 14, color: c.text, outlineStyle: 'none' } as any,
     button: { backgroundColor: c.primary, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
     buttonDisabled: { opacity: 0.5 },
-    buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+    buttonText: { color: '#fff', fontSize: 15, fontFamily: 'Jost_500Medium' },
     toggle: { textAlign: 'center', marginTop: 16, fontSize: 13, color: c.textSecondary },
-    toggleBold: { color: c.primary, fontWeight: '600' },
+    toggleBold: { color: c.primary, fontFamily: 'Jost_500Medium' },
     divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 14 },
     dividerLine: { flex: 1, height: 1, backgroundColor: c.border },
     dividerText: { marginHorizontal: 12, fontSize: 12, color: c.textTertiary },
     demoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, backgroundColor: c.primaryLight },
-    demoBtnText: { color: c.primary, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+    demoBtnText: { color: c.primary, fontSize: 14, fontFamily: 'Jost_500Medium', marginLeft: 6 },
     errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.dangerLight, borderRadius: 10, padding: 12, marginBottom: 4 },
     errorText: { color: c.danger, fontSize: 13, marginLeft: 8, flex: 1 },
     successBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.successLight, borderRadius: 10, padding: 12, marginBottom: 4 },

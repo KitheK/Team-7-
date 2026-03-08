@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Modal, Pressable, Platform } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Sidebar from './Sidebar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import TopBar from './TopBar';
-import { useColors } from '../context/ThemeContext';
+import MonthRangeSelector from './MonthRangeSelector';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID, type OverviewRange } from '../context/WorkspaceContext';
 import { useLayout } from '../context/LayoutContext';
+import theme from '../../constants/theme';
+import Typography from './ui/Typography';
 
 type Props = {
   activeNav: string;
@@ -15,93 +18,192 @@ type Props = {
   children: React.ReactNode;
 };
 
-const SIDEBAR_WIDTH = 220;
-const SIDEBAR_WIDTH_MOBILE = 280;
+const MOBILE_ACTIONS = ['Home', 'Spending', 'Savings', 'Month'] as const;
 
 export default function AppLayout({ activeNav, onItemPress, onLogout, userEmail, children }: Props) {
   const { isMobile, isNative } = useLayout();
-  const c = useColors();
-  const s = useMemo(() => createStyles(c), [c]);
-  const [sidebarOpen, setSidebarOpen] = useState(!isNative && !isMobile);
+  const [monthSelectorVisible, setMonthSelectorVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const { activeWorkspaceId, activeWorkspace, overviewRange } = useWorkspace();
-  const rangeLabel: Record<OverviewRange, string> = { all: 'All months', last3: 'Last 3 months', last6: 'Last 6 months' };
-  const viewingLabel = activeWorkspaceId === OVERVIEW_ID || !activeWorkspaceId
-    ? rangeLabel[overviewRange]
-    : activeWorkspace ? workspaceLabel(activeWorkspace) : 'All months';
+  const monthLabel = useMemo(() => {
+    const rangeLabel: Record<OverviewRange, string> = {
+      all: 'All months',
+      last3: 'Last 3 months',
+      last6: 'Last 6 months',
+    };
+    return activeWorkspaceId === OVERVIEW_ID || !activeWorkspaceId
+      ? rangeLabel[overviewRange]
+      : activeWorkspace
+        ? workspaceLabel(activeWorkspace)
+        : 'All months';
+  }, [activeWorkspaceId, activeWorkspace, overviewRange]);
 
-  useEffect(() => {
-    if (isNative) setSidebarOpen(false);
-    else if (!isMobile) setSidebarOpen(true);
-    else setSidebarOpen(false);
-  }, [isMobile, isNative]);
-
-  const closeSidebar = () => setSidebarOpen(false);
-  const toggleSidebar = () => setSidebarOpen(p => !p);
-  const handleNavPress = (key: string) => {
-    onItemPress(key);
-    if (isNative || isMobile) closeSidebar();
+  const handlePrimaryAction = (action: string) => {
+    if (action === 'Month') {
+      setMonthSelectorVisible(true);
+      return;
+    }
+    onItemPress(action);
   };
 
-  const sidebar = (
-    <Sidebar activeItem={activeNav} onItemPress={handleNavPress} onLogout={onLogout} onClose={isNative || isMobile ? closeSidebar : undefined} />
-  );
+  const GradientBg = useMemo(() => (props: { style?: any; children: React.ReactNode }) => (
+    <LinearGradient colors={['#EDEBE8', '#F0E2D8', '#EDD0C0']} locations={[0, 0.65, 1]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={[{ flex: 1 }, props.style]}>
+      {props.children}
+    </LinearGradient>
+  ), []);
 
   if (isNative) {
     return (
-      <View style={s.root}>
-        <Modal visible={sidebarOpen} animationType="slide" transparent onRequestClose={closeSidebar} statusBarTranslucent>
-          <Pressable style={s.drawerBackdrop} onPress={closeSidebar}>
-            <Pressable style={[s.drawerPane, { width: SIDEBAR_WIDTH_MOBILE }]} onPress={e => e.stopPropagation()}>
-              <SafeAreaView style={s.drawerSafe} edges={['top', 'bottom']}>{sidebar}</SafeAreaView>
-            </Pressable>
-          </Pressable>
-        </Modal>
-        <SafeAreaView style={s.nativeSafe} edges={['top', 'left', 'right']}>
-          <TopBar userName={userEmail?.split('@')[0] ?? 'User'} userRole="" viewingLabel={viewingLabel} sidebarOpen={sidebarOpen} onMenuPress={toggleSidebar} isNative />
-          <ScrollView style={s.scroll} contentContainerStyle={[s.scrollContent, s.scrollNative, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]} showsVerticalScrollIndicator bounces keyboardShouldPersistTaps="handled">
+      <GradientBg>
+        <SafeAreaView style={styles.nativeSafe} edges={['top', 'left', 'right']}>
+          <TopBar
+            userName={userEmail?.split('@')[0] ?? 'User'}
+            activeNav={activeNav}
+            onNavPress={handlePrimaryAction}
+            onMonthPress={() => setMonthSelectorVisible(true)}
+            monthLabel={monthLabel}
+            isNative
+            onLogout={onLogout}
+          />
+          <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, styles.scrollNative, { paddingBottom: Math.max(insets.bottom, 64) + 44 }]} showsVerticalScrollIndicator bounces keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
+          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing.sm) }]}>
+            {MOBILE_ACTIONS.map(action => {
+              const selected = action === activeNav;
+              const isMonthAction = action === 'Month';
+              const iconName =
+                action === 'Home' ? 'home' :
+                action === 'Spending' ? 'bar-chart-2' :
+                action === 'Savings' ? 'trending-down' :
+                'calendar';
+              const isActive = selected || (isMonthAction && monthSelectorVisible);
+              const activeColor =
+                action === 'Spending' ? theme.colors.primary :
+                action === 'Savings' ? theme.colors.success :
+                theme.colors.primary;
+              return (
+                <Pressable
+                  key={action}
+                  onPress={() => handlePrimaryAction(action)}
+                  style={({ pressed, hovered }) => [
+                    styles.bottomAction,
+                    isActive && styles.bottomActionActive,
+                    isActive && action === 'Savings' && styles.bottomActionActiveSavings,
+                    hovered && styles.bottomActionHover,
+                    pressed && styles.bottomActionPressed,
+                  ]}
+                >
+                  <Feather
+                    name={iconName}
+                    size={18}
+                    color={isActive ? activeColor : theme.colors.textSecondary}
+                  />
+                  <Typography
+                    variant="caption"
+                    style={isActive ? [styles.bottomActionTextActive, { color: activeColor }] : styles.bottomActionText}
+                  >
+                    {isMonthAction ? 'Months' : action}
+                  </Typography>
+                </Pressable>
+              );
+            })}
+          </View>
         </SafeAreaView>
-      </View>
+        <MonthRangeSelector visible={monthSelectorVisible} onClose={() => setMonthSelectorVisible(false)} isMobile />
+      </GradientBg>
     );
   }
 
   return (
-    <View style={s.root}>
-      {isMobile ? (
-        <Modal visible={sidebarOpen} animationType="slide" transparent onRequestClose={closeSidebar}>
-          <Pressable style={s.drawerBackdrop} onPress={closeSidebar}>
-            <Pressable style={[s.drawerPane, { width: SIDEBAR_WIDTH_MOBILE }]} onPress={e => e.stopPropagation()}>
-              {sidebar}
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : (
-        <View style={[s.sidebarWrap, { width: sidebarOpen ? SIDEBAR_WIDTH : 0 }]}>{sidebar}</View>
-      )}
-      <View style={s.main}>
-        <TopBar userName={userEmail?.split('@')[0] ?? 'User'} userRole="" viewingLabel={viewingLabel} sidebarOpen={sidebarOpen} onMenuPress={toggleSidebar} isNative={false} />
-        <ScrollView style={s.scroll} contentContainerStyle={[s.scrollContent, isMobile && s.scrollMobile]} showsVerticalScrollIndicator={false}>
+    <GradientBg>
+      <View style={styles.main}>
+        <TopBar
+          userName={userEmail?.split('@')[0] ?? 'User'}
+          activeNav={activeNav}
+          onNavPress={handlePrimaryAction}
+          onMonthPress={() => setMonthSelectorVisible(true)}
+          monthLabel={monthLabel}
+          isNative={false}
+          onLogout={onLogout}
+        />
+        <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollMobile]} showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
       </View>
-    </View>
+      <MonthRangeSelector visible={monthSelectorVisible} onClose={() => setMonthSelectorVisible(false)} />
+    </GradientBg>
   );
 }
 
-function createStyles(c: ReturnType<typeof useColors>) {
-  return StyleSheet.create({
-    root: { flex: 1, flexDirection: 'row', backgroundColor: c.background },
-    sidebarWrap: { overflow: 'hidden' },
-    drawerBackdrop: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-start' },
-    drawerPane: { height: '100%', backgroundColor: c.sidebar },
-    drawerSafe: { flex: 1 },
-    nativeSafe: { flex: 1, backgroundColor: c.background },
-    main: { flex: 1, overflow: 'hidden' },
-    scroll: { flex: 1 },
-    scrollContent: { padding: 28, paddingBottom: 48, maxWidth: 1100 },
-    scrollMobile: { padding: 16, paddingBottom: 32 },
-    scrollNative: { padding: 16, paddingBottom: 40 },
-  });
-}
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  nativeSafe: {
+    flex: 1,
+  },
+  main: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 64,
+    width: '100%',
+    maxWidth: 1360,
+    alignSelf: 'center',
+  },
+  scrollMobile: {
+    padding: theme.spacing.lg,
+    paddingBottom: 112,
+  },
+  scrollNative: {
+    padding: theme.spacing.lg,
+    paddingBottom: 104,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  bottomAction: {
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.pill,
+    gap: 4,
+  },
+  bottomActionActive: {
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    ...theme.shadows.subtle,
+  },
+  bottomActionActiveSavings: {
+    borderColor: theme.colors.success,
+  },
+  bottomActionHover: {
+    transform: [{ translateY: -1 }],
+  },
+  bottomActionPressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  bottomActionText: {
+    color: theme.colors.textSecondary,
+  },
+  bottomActionTextActive: {
+    color: theme.colors.primary,
+  },
+});

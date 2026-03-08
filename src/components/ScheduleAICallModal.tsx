@@ -22,6 +22,12 @@ const TONES: { key: NegotiationTone; label: string; desc: string }[] = [
   { key: 'firm', label: 'Firm', desc: 'Professional, uncompromising' },
 ];
 
+const AI_FLOW_STEPS = [
+  { icon: 'search', title: 'Analyze spend', desc: 'Pull workspace context and vendor history.' },
+  { icon: 'radio', title: 'Build brief', desc: 'Generate a negotiation plan with target pricing.' },
+  { icon: 'phone-call', title: 'Place the call', desc: 'Launch the AI agent and track the outcome.' },
+] as const;
+
 export default function ScheduleAICallModal({
   visible,
   onClose,
@@ -206,15 +212,42 @@ export default function ScheduleAICallModal({
               <>
                 <View style={s.header}>
                   <View style={s.iconWrap}>
-                    <Feather name="phone-call" size={20} color={c.primary} />
+                    <Feather name="radio" size={20} color={c.primary} />
                   </View>
                   <View style={s.headerText}>
-                    <Text style={s.title}>Schedule AI negotiation</Text>
-                    <Text style={s.subtitle}>{vendor ? vendor : 'Select vendor'}</Text>
+                    <Text style={s.title}>AI vendor call</Text>
+                    <Text style={s.subtitle}>{vendor ? vendor : 'Select a vendor to prepare the call'}</Text>
                   </View>
                   <Pressable onPress={handleClose} hitSlop={12}>
                     <Feather name="x" size={20} color={c.textTertiary} />
                   </Pressable>
+                </View>
+
+                <View style={s.heroPanel}>
+                  <View style={s.heroTopRow}>
+                    <View style={s.heroIconWrap}>
+                      <Feather name="phone-call" size={22} color={c.white} />
+                    </View>
+                    <View style={s.heroCopy}>
+                      <Text style={s.heroEyebrow}>FLAGSHIP FEATURE</Text>
+                      <Text style={s.heroTitle}>Alfred can negotiate live on your behalf</Text>
+                      <Text style={s.heroText}>
+                        We generate a brief from the selected month, then the AI agent calls the vendor using your preferred tone.
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={s.heroMetaRow}>
+                    <View style={s.heroMetaPill}>
+                      <Feather name={hasValidWorkspace ? 'calendar' : 'alert-circle'} size={14} color={hasValidWorkspace ? c.success : c.warning} />
+                      <Text style={s.heroMetaText}>{hasValidWorkspace ? 'Month selected' : 'Select a month first'}</Text>
+                    </View>
+                    {annualSpend != null && (
+                      <View style={s.heroMetaPill}>
+                        <Feather name="bar-chart-2" size={14} color={c.primary} />
+                        <Text style={s.heroMetaText}>Annual spend ${Number(annualSpend).toLocaleString()}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 <Text style={s.label}>Vendor name</Text>
@@ -256,13 +289,27 @@ export default function ScheduleAICallModal({
                   ))}
                 </View>
 
-                <Text style={s.note}>Our AI agent will call the vendor, negotiate pricing, and report back with the outcome.</Text>
+                <View style={s.flowCard}>
+                  {AI_FLOW_STEPS.map(item => (
+                    <View key={item.title} style={s.flowRow}>
+                      <View style={s.flowIconWrap}>
+                        <Feather name={item.icon} size={15} color={c.primary} />
+                      </View>
+                      <View style={s.flowCopy}>
+                        <Text style={s.flowTitle}>{item.title}</Text>
+                        <Text style={s.flowDesc}>{item.desc}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                <Text style={s.note}>Your brief is generated first so you can review the plan before the AI places the call.</Text>
                 <Pressable
                   style={[s.scheduleBtn, !vendor.trim() && s.disabledBtn]}
                   onPress={handleGenerateBrief}
                 >
                   <Feather name="zap" size={16} color="#fff" />
-                  <Text style={s.scheduleBtnText}>Generate brief</Text>
+                  <Text style={s.scheduleBtnText}>Build AI call brief</Text>
                 </Pressable>
               </>
             )}
@@ -270,8 +317,8 @@ export default function ScheduleAICallModal({
             {step === 'loading-brief' && (
               <View style={s.centeredState}>
                 <ActivityIndicator size="large" color={c.primary} />
-                <Text style={s.loadingTitle}>Analyzing vendor data...</Text>
-                <Text style={s.loadingSubtitle}>Generating negotiation brief with AI</Text>
+                <Text style={s.loadingTitle}>Preparing the AI call plan...</Text>
+                <Text style={s.loadingSubtitle}>Analyzing vendor context, pricing signals, and negotiation angles.</Text>
               </View>
             )}
 
@@ -279,10 +326,10 @@ export default function ScheduleAICallModal({
               <>
                 <View style={s.header}>
                   <View style={[s.iconWrap, s.iconWrapSuccess]}>
-                    <Feather name="check-circle" size={20} color={c.success} />
+                    <Feather name="radio" size={20} color={c.primary} />
                   </View>
                   <View style={s.headerText}>
-                    <Text style={s.title}>Brief ready</Text>
+                    <Text style={s.title}>Brief ready to call</Text>
                     <Text style={s.subtitle}>{vendor}</Text>
                   </View>
                   <Pressable onPress={handleClose} hitSlop={12}>
@@ -292,6 +339,15 @@ export default function ScheduleAICallModal({
 
                 {briefVendor && (
                   <View style={s.briefCard}>
+                    <View style={s.briefBanner}>
+                      <View style={s.briefBannerIcon}>
+                        <Feather name="mic" size={16} color={c.primary} />
+                      </View>
+                      <View style={s.briefBannerCopy}>
+                        <Text style={s.briefBannerTitle}>AI call summary</Text>
+                        <Text style={s.briefBannerText}>Review the goal and talking points before launching the live negotiation.</Text>
+                      </View>
+                    </View>
                     <View style={s.briefRow}>
                       <Text style={s.briefLabel}>Target discount</Text>
                       <Text style={s.briefValue}>{briefVendor.discount_target_pct ?? 15}%</Text>
@@ -339,7 +395,7 @@ export default function ScheduleAICallModal({
                     onPress={handleStartCall}
                   >
                     <Feather name="phone-call" size={16} color="#fff" />
-                    <Text style={s.scheduleBtnText}>Start call now</Text>
+                    <Text style={s.scheduleBtnText}>Launch AI call</Text>
                   </Pressable>
                 </View>
               </>
@@ -348,14 +404,16 @@ export default function ScheduleAICallModal({
             {step === 'calling' && (
               <View style={s.centeredState}>
                 <ActivityIndicator size="large" color={c.primary} />
-                <Text style={s.loadingTitle}>Placing call...</Text>
-                <Text style={s.loadingSubtitle}>Generating script and connecting to {vendor}</Text>
+                <Text style={s.loadingTitle}>Connecting the AI agent...</Text>
+                <Text style={s.loadingSubtitle}>Generating the live script and dialing {vendor} now.</Text>
               </View>
             )}
 
             {step === 'success' && (
               <View style={s.successState}>
-                <Feather name="check-circle" size={40} color={c.success} />
+                <View style={s.successIconWrap}>
+                  <Feather name="phone-call" size={28} color={c.success} />
+                </View>
                 <Text style={s.successTitle}>Call started</Text>
                 <Text style={s.successText}>
                   The AI agent is now negotiating with {vendor}. Watch the live transcript below.
@@ -391,15 +449,79 @@ type ColorScheme = ReturnType<typeof useColors>;
 function createStyles(c: ColorScheme) {
   return StyleSheet.create({
     backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-    card: { width: '100%', maxWidth: 420, maxHeight: '85%', backgroundColor: c.card, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: c.cardBorder },
+    card: { width: '100%', maxWidth: 520, maxHeight: '85%', backgroundColor: c.card, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: c.cardBorder },
     header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
     iconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    iconWrapSuccess: { backgroundColor: c.successLight },
+    iconWrapSuccess: { backgroundColor: c.primaryLight },
     iconWrapError: { backgroundColor: c.dangerLight },
     headerText: { flex: 1 },
-    title: { fontSize: 17, fontWeight: '700', color: c.text },
+    title: { fontSize: 17, fontFamily: 'Jost_500Medium', color: c.text },
     subtitle: { fontSize: 13, color: c.textSecondary, marginTop: 2 },
-    label: { fontSize: 13, fontWeight: '600', color: c.text, marginBottom: 6 },
+    heroPanel: {
+      backgroundColor: c.inputBg,
+      borderRadius: 18,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      marginBottom: 18,
+    },
+    heroTopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    heroIconWrap: {
+      width: 46,
+      height: 46,
+      borderRadius: 14,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroCopy: {
+      flex: 1,
+    },
+    heroEyebrow: {
+      fontSize: 11,
+      fontFamily: 'Jost_700Bold',
+      letterSpacing: 1.5,
+      color: c.primary,
+      marginBottom: 4,
+    },
+    heroTitle: {
+      fontSize: 18,
+      fontFamily: 'Jost_500Medium',
+      color: c.text,
+      marginBottom: 6,
+    },
+    heroText: {
+      fontSize: 13,
+      color: c.textSecondary,
+      lineHeight: 19,
+    },
+    heroMetaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 14,
+    },
+    heroMetaPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.cardBorder,
+    },
+    heroMetaText: {
+      fontSize: 12,
+      fontFamily: 'Jost_500Medium',
+      color: c.textSecondary,
+    },
+    label: { fontSize: 13, fontFamily: 'Jost_500Medium', color: c.text, marginBottom: 6 },
     labelSpaced: { marginTop: 16 },
     input: { backgroundColor: c.inputBg, borderWidth: 1, borderColor: c.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: c.text, marginBottom: 14 },
     note: { fontSize: 12, color: c.textTertiary, lineHeight: 18, marginBottom: 20 },
@@ -410,39 +532,118 @@ function createStyles(c: ColorScheme) {
       borderColor: c.border, backgroundColor: c.inputBg,
     },
     toneChipActive: { borderColor: c.primary, backgroundColor: c.primaryLight },
-    toneLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+    toneLabel: { fontSize: 13, fontFamily: 'Jost_500Medium', color: c.textSecondary },
     toneLabelActive: { color: c.primary },
     toneDesc: { fontSize: 11, color: c.textTertiary, marginTop: 2 },
     toneDescActive: { color: c.primary },
+    flowCard: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: c.cardBorder,
+      marginTop: 10,
+      marginBottom: 12,
+      gap: 12,
+    },
+    flowRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+    },
+    flowIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 999,
+      backgroundColor: c.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+    },
+    flowCopy: {
+      flex: 1,
+    },
+    flowTitle: {
+      fontSize: 13,
+      fontFamily: 'Jost_500Medium',
+      color: c.text,
+      marginBottom: 2,
+    },
+    flowDesc: {
+      fontSize: 12,
+      color: c.textSecondary,
+      lineHeight: 18,
+    },
     scheduleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.primary, paddingVertical: 14, borderRadius: 10 },
-    scheduleBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+    scheduleBtnText: { fontSize: 15, fontFamily: 'Jost_500Medium', color: '#fff' },
     disabledBtn: { opacity: 0.5 },
     footer: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24 },
     cancelBtn: { paddingVertical: 10 },
     cancelText: { fontSize: 14, color: c.textSecondary },
     centeredState: { alignItems: 'center', paddingVertical: 32 },
-    loadingTitle: { fontSize: 18, fontWeight: '700', color: c.text, marginTop: 20 },
+    loadingTitle: { fontSize: 20, fontFamily: 'PlayfairDisplay_700Bold', color: c.text, marginTop: 20 },
     loadingSubtitle: { fontSize: 13, color: c.textSecondary, textAlign: 'center', marginTop: 8 },
-    briefCard: { backgroundColor: c.inputBg, borderRadius: 12, padding: 16, marginBottom: 16 },
+    briefCard: { backgroundColor: c.inputBg, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: c.border },
+    briefBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      paddingBottom: 14,
+      marginBottom: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    briefBannerIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 999,
+      backgroundColor: c.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.cardBorder,
+    },
+    briefBannerCopy: {
+      flex: 1,
+    },
+    briefBannerTitle: {
+      fontSize: 13,
+      fontFamily: 'Jost_500Medium',
+      color: c.text,
+      marginBottom: 2,
+    },
+    briefBannerText: {
+      fontSize: 12,
+      color: c.textSecondary,
+      lineHeight: 18,
+    },
     briefRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
     briefLabel: { fontSize: 13, color: c.textSecondary },
     briefLabelBlock: { marginTop: 12, marginBottom: 6 },
-    briefValue: { fontSize: 15, fontWeight: '700', color: c.text },
+    briefValue: { fontSize: 15, fontFamily: 'Jost_700Bold', color: c.text },
     talkingPoint: { flexDirection: 'row', gap: 10, paddingVertical: 6 },
     tpNumber: {
       width: 22, height: 22, borderRadius: 11, backgroundColor: c.primary,
-      color: c.white, fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 22,
+      color: c.white, fontSize: 12, fontFamily: 'Jost_700Bold', textAlign: 'center', lineHeight: 22,
     },
     tpText: { flex: 1, fontSize: 13, color: c.text, lineHeight: 20 },
     successState: { alignItems: 'center', paddingVertical: 24 },
-    successTitle: { fontSize: 18, fontWeight: '700', color: c.text, marginTop: 14, marginBottom: 6 },
+    successIconWrap: {
+      width: 64,
+      height: 64,
+      borderRadius: 18,
+      backgroundColor: c.successLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    successTitle: { fontSize: 20, fontFamily: 'PlayfairDisplay_700Bold', color: c.text, marginTop: 14, marginBottom: 6 },
     successText: { fontSize: 13, color: c.textSecondary, textAlign: 'center' },
     doneBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: c.primary },
-    doneText: { fontSize: 14, fontWeight: '600', color: c.primary },
-    errorTitle: { fontSize: 20, fontWeight: '700', color: c.danger, marginTop: 16 },
+    doneText: { fontSize: 14, fontFamily: 'Jost_500Medium', color: c.primary },
+    errorTitle: { fontSize: 22, fontFamily: 'PlayfairDisplay_700Bold', color: c.danger, marginTop: 16 },
     errorSubtitle: { fontSize: 13, color: c.textSecondary, textAlign: 'center', marginTop: 8, paddingHorizontal: 16 },
     retryBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: c.primary },
-    retryText: { fontSize: 14, fontWeight: '600', color: c.primary },
+    retryText: { fontSize: 14, fontFamily: 'Jost_500Medium', color: c.primary },
   });
 }
 

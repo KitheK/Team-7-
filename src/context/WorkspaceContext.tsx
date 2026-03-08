@@ -69,6 +69,15 @@ export type VendorPreference = {
   created_at: string;
 };
 
+export type UploadBatch = {
+  id: string;
+  workspace_id: string;
+  file_name: string;
+  row_count: number;
+  file_path: string | null;
+  created_at: string;
+};
+
 export const OVERVIEW_ID = 'all';
 
 export type OverviewRange = 'all' | 'last3' | 'last6';
@@ -86,6 +95,10 @@ type WorkspaceContextValue = {
   refreshActiveTransactions: () => Promise<void>;
   updateWorkspaceTotal: (workspaceId: string) => Promise<void>;
   insertTransactions: (workspaceId: string, rows: TransactionRow[]) => Promise<{ inserted: number; rejected: number }>;
+  uploadBatches: UploadBatch[];
+  uploadCsv: (workspaceId: string, csvText: string, fileName: string, parsedRows: TransactionRow[]) => Promise<UploadBatch | null>;
+  deleteBatch: (batchId: string) => Promise<void>;
+  refreshUploadBatches: () => Promise<void>;
   isDemoMode: boolean;
 };
 
@@ -111,6 +124,7 @@ export function WorkspaceProvider({
   const [overviewRange, setOverviewRangeState] = useState<OverviewRange>('all');
   const [demoTransactions, setDemoTransactions] = useState<Record<string, TransactionRow[]>>({});
   const [activeWorkspaceTransactions, setActiveWorkspaceTransactions] = useState<Transaction[]>([]);
+  const [uploadBatches, setUploadBatches] = useState<UploadBatch[]>([]);
 
   const refetchWorkspaces = useCallback(async () => {
     if (isDemoMode || !userId || !supabase) {
@@ -264,6 +278,89 @@ export function WorkspaceProvider({
     return { inserted: valid.length, rejected };
   }, [isDemoMode, activeWorkspaceId, updateWorkspaceTotal, refreshActiveTransactions, overviewWorkspaceIds]);
 
+  const refreshUploadBatches = useCallback(async () => {
+    if (isDemoMode || !supabase || !activeWorkspaceId || activeWorkspaceId === OVERVIEW_ID) {
+      setUploadBatches([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('upload_batches')
+      .select('id, workspace_id, file_name, row_count, file_path, created_at')
+      .eq('workspace_id', activeWorkspaceId)
+      .order('created_at', { ascending: false });
+    setUploadBatches((data as UploadBatch[]) ?? []);
+  }, [isDemoMode, activeWorkspaceId]);
+
+  useEffect(() => {
+    refreshUploadBatches();
+  }, [activeWorkspaceId, refreshUploadBatches]);
+
+  const uploadCsv = useCallback(async (
+    workspaceId: string,
+    csvText: string,
+    fileName: string,
+    parsedRows: TransactionRow[],
+  ): Promise<UploadBatch | null> => {
+    if (isDemoMode || !supabase) {
+      const demoBatch: UploadBatch = {
+        id: `demo-batch-${Date.now()}`,
+        workspace_id: workspaceId,
+        file_name: fileName,
+        row_count: parsedRows.length,
+        file_path: null,
+        created_at: new Date().toISOString(),
+      };
+      setUploadBatches(prev => [demoBatch, ...prev]);
+      await insertTransactions(workspaceId, parsedRows);
+      return demoBatch;
+    }
+    const filePath = `${workspaceId}/${Date.now()}-${fileName}`;
+    await supabase.storage.from('csv-uploads').upload(filePath, csvText, { contentType: 'text/csv' });
+
+    const { data: batch, error } = await supabase
+      .from('upload_batches')
+      .insert({ workspace_id: workspaceId, file_name: fileName, row_count: parsedRows.length, file_path: filePath })
+      .select()
+      .single();
+    if (error || !batch) return null;
+
+    const valid = parsedRows.filter(r => typeof r.amount === 'number' && !Number.isNaN(r.amount));
+    if (valid.length > 0) {
+      await supabase.from('transactions').insert(
+        valid.map(r => ({
+          workspace_id: workspaceId,
+          batch_id: batch.id,
+          vendor_name: r.vendor_name ?? null,
+          amount: r.amount,
+          transaction_date: r.transaction_date ?? null,
+          description: r.description ?? null,
+        }))
+      );
+      await updateWorkspaceTotal(workspaceId);
+      await refreshActiveTransactions();
+    }
+    await refreshUploadBatches();
+    return batch as UploadBatch;
+  }, [isDemoMode, insertTransactions, updateWorkspaceTotal, refreshActiveTransactions, refreshUploadBatches]);
+
+  const deleteBatch = useCallback(async (batchId: string) => {
+    if (isDemoMode) {
+      setUploadBatches(prev => prev.filter(b => b.id !== batchId));
+      return;
+    }
+    if (!supabase) return;
+    const batch = uploadBatches.find(b => b.id === batchId);
+    if (batch?.file_path) {
+      await supabase.storage.from('csv-uploads').remove([batch.file_path]);
+    }
+    await supabase.from('upload_batches').delete().eq('id', batchId);
+    if (batch) {
+      await updateWorkspaceTotal(batch.workspace_id);
+      await refreshActiveTransactions();
+    }
+    await refreshUploadBatches();
+  }, [isDemoMode, uploadBatches, updateWorkspaceTotal, refreshActiveTransactions, refreshUploadBatches]);
+
   useEffect(() => {
     if (isDemoMode) refreshActiveTransactions();
   }, [isDemoMode, demoTransactions, refreshActiveTransactions]);
@@ -295,6 +392,10 @@ export function WorkspaceProvider({
         refreshActiveTransactions,
         updateWorkspaceTotal,
         insertTransactions,
+        uploadBatches,
+        uploadCsv,
+        deleteBatch,
+        refreshUploadBatches,
         isDemoMode,
       }}
     >
