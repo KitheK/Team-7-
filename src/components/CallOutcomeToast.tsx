@@ -15,8 +15,6 @@ type Props = {
   onDismiss: () => void;
 };
 
-const DISPLAY_MS = 8000;
-
 export default function CallOutcomeToast({ data, onDismiss }: Props) {
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -28,16 +26,14 @@ export default function CallOutcomeToast({ data, onDismiss }: Props) {
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
       Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
     ]).start();
-
-    const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateY, { toValue: -100, duration: 300, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-      ]).start(() => onDismiss());
-    }, DISPLAY_MS);
-
-    return () => clearTimeout(timer);
   }, [data]);
+
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: -100, duration: 200, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => onDismiss());
+  };
 
   if (!data) return null;
 
@@ -99,8 +95,14 @@ export default function CallOutcomeToast({ data, onDismiss }: Props) {
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
       </View>
-      <Pressable onPress={onDismiss} hitSlop={12} style={styles.closeBtn}>
-        <Feather name="x" size={16} color={Colors.textTertiary} />
+      <Pressable
+        onPress={handleDismiss}
+        hitSlop={16}
+        style={styles.closeBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss notification"
+      >
+        <Feather name="x" size={18} color={Colors.textTertiary} />
       </Pressable>
     </Animated.View>
   );

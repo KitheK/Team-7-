@@ -140,6 +140,12 @@ export default function LiveTranscript({ negotiation, onClose }: Props) {
             <Text style={styles.waitingText}>Waiting for call to connect...</Text>
           </View>
         )}
+        {lines.length === 0 && !isActive && status === 'completed' && (
+          <View style={styles.waitingState}>
+            <Feather name="file-text" size={24} color={Colors.textTertiary} />
+            <Text style={styles.waitingText}>Transcript will appear here once processing is complete.</Text>
+          </View>
+        )}
         {lines.map((line) => (
           <View
             key={line.id}

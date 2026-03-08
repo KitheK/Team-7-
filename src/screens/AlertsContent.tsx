@@ -94,14 +94,46 @@ export default function AlertsContent() {
     refreshAnalytics,
   } = useWorkspace();
 
+  const opportunitiesRef = useRef(opportunities);
+  opportunitiesRef.current = opportunities;
+
   const resolvedWorkspaceId = activeWorkspaceId === 'all' ? (workspaces[0]?.id ?? null) : activeWorkspaceId;
 
-  // Subscribe to negotiation status changes to update opportunity status
+  // Negotiations for current workspace only (for call status + potential circle + transcript)
+  const [workspaceNegotiations, setWorkspaceNegotiations] = useState<Negotiation[]>([]);
+  const fetchWorkspaceNegotiations = useCallback(async () => {
+    if (!supabase || !resolvedWorkspaceId) return;
+    const { data } = await supabase
+      .from('negotiations')
+      .select('*')
+      .eq('workspace_id', resolvedWorkspaceId)
+      .order('created_at', { ascending: false });
+    if (data) setWorkspaceNegotiations((data as Negotiation[]) ?? []);
+  }, [resolvedWorkspaceId]);
+
+  useEffect(() => {
+    fetchWorkspaceNegotiations();
+  }, [fetchWorkspaceNegotiations]);
+
+  // Subscribe to negotiation status changes to update opportunity status and toast
   useEffect(() => {
     if (!supabase || !resolvedWorkspaceId) return;
 
     const channel = supabase
       .channel(`alerts-negotiations-${resolvedWorkspaceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'negotiations',
+          filter: `workspace_id=eq.${resolvedWorkspaceId}`,
+        },
+        (payload) => {
+          const inserted = payload.new as Negotiation;
+          setWorkspaceNegotiations(prev => [inserted, ...prev]);
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -117,11 +149,17 @@ export default function AlertsContent() {
             setActiveTranscriptNeg(updated);
           }
 
+          setWorkspaceNegotiations(prev =>
+            prev.some(n => n.id === updated.id)
+              ? prev.map(n => (n.id === updated.id ? updated : n))
+              : [updated, ...prev]
+          );
+
           const prev = trackedNegotiationsRef.current.get(updated.id);
           const wasActive = prev?.status === 'calling';
 
           if (updated.status === 'completed' && wasActive) {
-            const opp = opportunities.find(
+            const opp = opportunitiesRef.current.find(
               o => o.type === 'ai_negotiation' && o.vendor_name === updated.vendor_name && o.status === 'ai_call_started'
             );
             if (opp) {
@@ -130,7 +168,7 @@ export default function AlertsContent() {
           }
 
           if (updated.status === 'failed' && wasActive) {
-            const opp = opportunities.find(
+            const opp = opportunitiesRef.current.find(
               o => o.type === 'ai_negotiation' && o.vendor_name === updated.vendor_name && o.status === 'ai_call_started'
             );
             if (opp) {
@@ -150,6 +188,18 @@ export default function AlertsContent() {
               agreedDiscount: updated.agreed_discount,
               annualSpend: updated.annual_spend,
             });
+
+            // Update opportunity to resolved with secured savings so potential circle updates
+            const isDeal = updated.outcome === 'success' || updated.outcome === 'partial';
+            if (isDeal && updated.annual_spend != null && updated.agreed_discount != null) {
+              const secured = Math.round(updated.annual_spend * (updated.agreed_discount / 100));
+              const opp = opportunitiesRef.current.find(
+                o => o.type === 'ai_negotiation' && o.vendor_name === updated.vendor_name
+              );
+              if (opp) {
+                updateOpportunityStatus(opp.id, 'resolved', secured);
+              }
+            }
           }
 
           trackedNegotiationsRef.current.set(updated.id, { status: updated.status, outcome: updated.outcome });
@@ -192,10 +242,30 @@ export default function AlertsContent() {
     () => negotiationQueue.reduce((sum, o) => sum + o.estimated_annual_savings, 0),
     [negotiationQueue]
   );
-  const negotiatedSavings = useMemo(
-    () => negotiationQueue.filter(o => o.status === 'resolved').reduce((sum, o) => sum + o.secured_annual_savings, 0),
-    [negotiationQueue]
-  );
+  // Potential circle: savings from completed deals in *this* workspace only
+  const negotiatedSavings = useMemo(() => {
+    return workspaceNegotiations
+      .filter(
+        n =>
+          n.status === 'completed' &&
+          (n.outcome === 'success' || n.outcome === 'partial') &&
+          n.annual_spend != null &&
+          n.agreed_discount != null
+      )
+      .reduce(
+        (sum, n) => sum + Math.round((n.annual_spend! * (n.agreed_discount! / 100))),
+        0
+      );
+  }, [workspaceNegotiations]);
+
+  // Latest negotiation in this workspace per vendor (for call status + transcript)
+  const negByVendorInWorkspace = useMemo(() => {
+    const map = new Map<string, Negotiation>();
+    for (const n of workspaceNegotiations) {
+      if (!map.has(n.vendor_name)) map.set(n.vendor_name, n);
+    }
+    return map;
+  }, [workspaceNegotiations]);
 
   const cancelProgress = totalCancellable > 0 ? securedCancelSavings / totalCancellable : 0;
   const negotiateProgress = totalNegotiable > 0 ? negotiatedSavings / totalNegotiable : 0;
@@ -248,11 +318,6 @@ export default function AlertsContent() {
   };
 
   const isResolved = (o: Opportunity) => o.status === 'resolved';
-  const isCallInProgress = (o: Opportunity) => o.status === 'ai_call_started';
-  const isCallDone = (o: Opportunity) =>
-    ['ai_call_completed', 'resolved'].includes(o.status);
-  const isCallAny = (o: Opportunity) =>
-    ['ai_call_started', 'ai_call_completed', 'resolved'].includes(o.status);
 
   const statusLabel = (o: Opportunity): string => {
     switch (o.status) {
@@ -263,21 +328,25 @@ export default function AlertsContent() {
     }
   };
 
-  const handleViewLiveTranscript = useCallback(async (opp: Opportunity) => {
-    if (!supabase) return;
-    const { data } = await supabase
-      .from('negotiations')
-      .select('*')
-      .eq('vendor_name', opp.vendor_name)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      const neg = data as Negotiation;
-      trackedNegotiationsRef.current.set(neg.id, { status: neg.status, outcome: neg.outcome });
-      setActiveTranscriptNeg(neg);
-    }
-  }, []);
+  const handleViewLiveTranscript = useCallback(
+    async (opp: Opportunity) => {
+      if (!supabase || !resolvedWorkspaceId) return;
+      const { data } = await supabase
+        .from('negotiations')
+        .select('*')
+        .eq('vendor_name', opp.vendor_name)
+        .eq('workspace_id', resolvedWorkspaceId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const neg = data as Negotiation;
+        trackedNegotiationsRef.current.set(neg.id, { status: neg.status, outcome: neg.outcome });
+        setActiveTranscriptNeg(neg);
+      }
+    },
+    [resolvedWorkspaceId]
+  );
 
   const CIRCLE = isNative ? 120 : 140;
 
@@ -409,9 +478,10 @@ export default function AlertsContent() {
               </View>
 
               {negotiationQueue.map(opp => {
-                const inProgress = isCallInProgress(opp);
-                const completed = isCallDone(opp);
-                const anyCall = isCallAny(opp);
+                const wsNeg = negByVendorInWorkspace.get(opp.vendor_name);
+                const inProgress = wsNeg?.status === 'calling';
+                const completed = Boolean(wsNeg?.status === 'completed');
+                const anyCall = inProgress || completed;
                 const done = isResolved(opp);
                 const isHovered = hoveredVendor === `negotiate-${opp.id}`;
 
@@ -510,7 +580,13 @@ export default function AlertsContent() {
               .select('*')
               .eq('id', negotiationId)
               .single();
-            if (data) setActiveTranscriptNeg(data as Negotiation);
+            if (data) {
+              const neg = data as Negotiation;
+              setActiveTranscriptNeg(neg);
+              setWorkspaceNegotiations(prev =>
+                prev.some(n => n.id === neg.id) ? prev : [neg, ...prev]
+              );
+            }
           }
         }}
       />
