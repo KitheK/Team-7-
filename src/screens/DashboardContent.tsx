@@ -83,7 +83,7 @@ export default function DashboardContent({ onOpenMonth }: Props) {
         </View>
         <View style={s.heroBubbles}>
           <View style={[s.heroBubble, { width: BUBBLE, height: BUBBLE, borderRadius: BUBBLE / 2, borderColor: c.primary }]}>
-            <View style={[s.heroBubbleFill, { backgroundColor: c.primary, height: activeMonthCount > 0 ? '40%' : '0%' }]} />
+            <View style={[s.heroBubbleFill, { backgroundColor: c.primary, height: activeMonthCount > 0 ? '100%' : '0%' }]} />
             <View style={s.heroBubbleInner}>
               <Text style={[s.heroBubbleLabel, { color: c.primary }]}>SPENT</Text>
               <Text style={s.heroBubbleValue}>
