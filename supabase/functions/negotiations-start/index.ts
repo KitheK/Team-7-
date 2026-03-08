@@ -12,7 +12,7 @@ const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") ?? "";
 const PIPECAT_WS_URL = Deno.env.get("PIPECAT_WS_URL") ?? "";
 
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
-const HF_API_URL = `https://router.huggingface.co/nscale/v1/chat/completions`;
+const HF_API_URL = "https://router.huggingface.co/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

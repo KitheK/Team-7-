@@ -6,12 +6,30 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
-const HF_API_URL = `https://router.huggingface.co/nscale/v1/chat/completions`;
+const HF_API_URL = "https://router.huggingface.co/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function normalizeVendorName(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function vendorMatches(candidate: string | null | undefined, requested: string) {
+  const normalizedCandidate = normalizeVendorName(candidate);
+  const normalizedRequested = normalizeVendorName(requested);
+
+  if (!normalizedCandidate || !normalizedRequested) return false;
+  return (
+    normalizedCandidate === normalizedRequested ||
+    normalizedCandidate.includes(normalizedRequested) ||
+    normalizedRequested.includes(normalizedCandidate)
+  );
+}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -50,10 +68,56 @@ serve(async (req: Request) => {
       });
     }
 
-    // If a specific vendor was requested, filter to that vendor
-    const targets = vendor_name
-      ? opportunities?.filter((o: any) => o.vendor_name === vendor_name)
+    // If a specific vendor was requested, filter to that vendor using a
+    // normalized comparison so small naming differences do not block the flow.
+    let targets = vendor_name
+      ? opportunities?.filter((o: any) => vendorMatches(o.vendor_name, vendor_name))
       : opportunities;
+
+    // Fallback: if the opportunity detector has no exact hit, summarise the
+    // selected workspace's transactions for that vendor so the user can still
+    // generate a negotiation brief from the data they are looking at.
+    if ((!targets || targets.length === 0) && vendor_name && workspace_id) {
+      const { data: workspaceTx, error: txError } = await supabaseUser
+        .from("transactions")
+        .select("vendor_name, description, amount, transaction_date")
+        .eq("workspace_id", workspace_id);
+
+      if (txError) {
+        return new Response(JSON.stringify({ error: txError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const matchingRows =
+        workspaceTx?.filter((tx: any) =>
+          vendorMatches(tx.vendor_name ?? tx.description, vendor_name)
+        ) ?? [];
+
+      if (matchingRows.length > 0) {
+        const annualSpend = matchingRows.reduce(
+          (sum: number, row: any) => sum + Number(row.amount ?? 0),
+          0
+        );
+        const avgInvoice = annualSpend / matchingRows.length;
+        const monthCount = new Set(
+          matchingRows
+            .map((row: any) => row.transaction_date?.slice?.(0, 7))
+            .filter(Boolean)
+        ).size;
+
+        targets = [
+          {
+            vendor_name,
+            annual_spend: annualSpend,
+            avg_invoice: avgInvoice,
+            month_count: monthCount || 1,
+            estimated_saving: Number((annualSpend * 0.15).toFixed(2)),
+          },
+        ];
+      }
+    }
 
     if (!targets || targets.length === 0) {
       return new Response(

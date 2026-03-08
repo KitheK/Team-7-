@@ -3,8 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable, Modal, ActivityIndicator,
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../../lib/supabase';
-import { generateBrief, generateScriptAndStartCall } from '../utils/negotiationAI';
-import type { NegotiationTone } from '../context/WorkspaceContext';
+import { OVERVIEW_ID, useWorkspace, type NegotiationTone } from '../context/WorkspaceContext';
 
 type Props = {
   visible: boolean;
@@ -31,6 +30,7 @@ export default function ScheduleAICallModal({
   annualSpend,
   onCallStarted,
 }: Props) {
+  const { isDemoMode } = useWorkspace();
   const [step, setStep] = useState<Step>('form');
   const [vendor, setVendor] = useState(vendorName);
   const [phone, setPhone] = useState('');
@@ -51,32 +51,54 @@ export default function ScheduleAICallModal({
     }
   }, [visible, vendorName]);
 
+  const hasValidWorkspace = Boolean(workspaceId && workspaceId !== OVERVIEW_ID);
+  const normalizedPhone = normalizePhoneNumber(phone);
+
+  // ── Generate brief via supabase.functions.invoke ──
   const handleGenerateBrief = async () => {
-    if (!vendor.trim()) return;
-    if (!workspaceId) {
-      setErrorMsg('Select a workspace before starting an AI call.');
+    if (!supabase) {
+      setErrorMsg('Supabase is not configured. Check your .env file.');
       setStep('error');
       return;
     }
+    if (isDemoMode) {
+      setErrorMsg('AI calls require a signed-in account. Sign in first, then try again.');
+      setStep('error');
+      return;
+    }
+    if (!vendor.trim()) {
+      setErrorMsg('Enter a vendor name to generate the negotiation brief.');
+      setStep('error');
+      return;
+    }
+    if (!hasValidWorkspace) {
+      setErrorMsg('Select a specific month on the left before starting an AI call.');
+      setStep('error');
+      return;
+    }
+
     setStep('loading-brief');
 
     try {
-      const result = await generateBrief(vendor, workspaceId ?? null, 1000);
+      const { data, error } = await supabase.functions.invoke('negotiations-brief', {
+        body: {
+          vendor_name: vendor,
+          workspace_id: workspaceId,
+          threshold: 1000,
+        },
+      });
 
-      if (result.error) {
-        setErrorMsg(result.error);
+      if (error) {
+        setErrorMsg(await extractFunctionError(error, 'Failed to generate brief'));
         setStep('error');
         return;
       }
 
-      if (!result.negotiationId) {
-        setErrorMsg('Could not create a tracked negotiation for this call.');
-        setStep('error');
-        return;
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      setBrief(parsed.brief);
+      if (parsed.negotiations?.[0]?.id) {
+        setNegotiationId(parsed.negotiations[0].id);
       }
-
-      setBrief(result.brief);
-      setNegotiationId(result.negotiationId);
       setStep('brief-preview');
     } catch (e: any) {
       setErrorMsg(e.message ?? 'Failed to generate brief');
@@ -84,38 +106,83 @@ export default function ScheduleAICallModal({
     }
   };
 
+  // ── Create a negotiation row if the brief step didn't produce one ──
+  const createNegotiationFallback = async () => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    if (!hasValidWorkspace || !workspaceId) {
+      throw new Error('Select a specific month before starting an AI call.');
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error(userError?.message ?? 'You must be signed in to start a call.');
+    }
+
+    const fallbackBrief = briefVendor ?? brief ?? {};
+    const { data, error } = await supabase
+      .from('negotiations')
+      .insert({
+        workspace_id: workspaceId,
+        user_id: user.id,
+        vendor_name: vendor.trim(),
+        vendor_phone: normalizedPhone,
+        tone,
+        target_discount: fallbackBrief.discount_target_pct ?? 15,
+        annual_spend: fallbackBrief.annual_spend ?? annualSpend ?? null,
+        brief: fallbackBrief,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+
+    if (error || !data?.id) {
+      throw new Error(error?.message ?? 'Failed to create the negotiation record.');
+    }
+
+    setNegotiationId(data.id);
+    return data.id as string;
+  };
+
+  // ── Start the call via supabase.functions.invoke ──
   const handleStartCall = async () => {
-    if (!phone.trim()) return;
+    if (!supabase) {
+      setErrorMsg('Supabase is not configured. Check your .env file.');
+      setStep('error');
+      return;
+    }
+    if (!phone.trim()) {
+      setErrorMsg('Enter the vendor phone number to call.');
+      setStep('error');
+      return;
+    }
+    if (!isValidPhoneNumber(phone)) {
+      setErrorMsg('Enter a valid phone number, e.g. +14155550123.');
+      setStep('error');
+      return;
+    }
+
     setStep('calling');
 
     try {
-      const briefVendorData = brief?.vendors?.[0] ?? brief;
-      const result = await generateScriptAndStartCall(
-        negotiationId,
-        phone,
-        tone,
-        {
+      const resolvedNegotiationId = negotiationId ?? await createNegotiationFallback();
+
+      const { data, error } = await supabase.functions.invoke('negotiations-start', {
+        body: {
+          negotiation_id: resolvedNegotiationId,
           vendor_name: vendor,
-          annual_spend: briefVendorData?.annual_spend ?? annualSpend,
-          target_discount: briefVendorData?.discount_target_pct ?? 15,
-          talking_points: briefVendorData?.talking_points,
-        }
-      );
+          vendor_phone: normalizedPhone,
+          tone,
+        },
+      });
 
-      if (result.error) {
-        setErrorMsg(result.error);
-        setStep('error');
-        return;
-      }
-
-      if (!result.callId) {
-        setErrorMsg('Call launch did not return a call ID.');
+      if (error) {
+        setErrorMsg(await extractFunctionError(error, 'Failed to start call'));
         setStep('error');
         return;
       }
 
       setStep('success');
-      if (negotiationId) onCallStarted?.(negotiationId);
+      onCallStarted?.(resolvedNegotiationId);
     } catch (e: any) {
       setErrorMsg(e.message ?? 'Failed to start call');
       setStep('error');
@@ -168,6 +235,12 @@ export default function ScheduleAICallModal({
                   keyboardType="phone-pad"
                 />
 
+                {isDemoMode && (
+                  <Text style={styles.warningText}>
+                    AI calls require a signed-in account. Sign out of demo mode and log in first.
+                  </Text>
+                )}
+
                 <Text style={[styles.label, { marginTop: 16 }]}>Negotiation tone</Text>
                 <View style={styles.toneRow}>
                   {TONES.map(t => (
@@ -193,7 +266,6 @@ export default function ScheduleAICallModal({
                   <Pressable
                     style={[styles.primaryButton, !vendor.trim() && styles.disabledBtn]}
                     onPress={handleGenerateBrief}
-                    disabled={!vendor.trim()}
                   >
                     <Feather name="zap" size={16} color={Colors.white} />
                     <Text style={styles.primaryButtonText}>Generate brief</Text>
@@ -270,7 +342,6 @@ export default function ScheduleAICallModal({
                   <Pressable
                     style={[styles.primaryButton, !phone.trim() && styles.disabledBtn]}
                     onPress={handleStartCall}
-                    disabled={!phone.trim()}
                   >
                     <Feather name="phone-call" size={16} color={Colors.white} />
                     <Text style={styles.primaryButtonText}>Start call now</Text>
@@ -361,6 +432,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: Colors.text,
   },
+  warningText: {
+    fontSize: 12,
+    color: Colors.danger,
+    marginTop: 8,
+    lineHeight: 18,
+  },
   toneRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   toneChip: {
     flex: 1, padding: 12, borderRadius: 10, borderWidth: 1,
@@ -415,3 +492,35 @@ const styles = StyleSheet.create({
   },
   retryText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
 });
+
+async function extractFunctionError(error: any, fallback: string): Promise<string> {
+  try {
+    if (error?.context instanceof Response) {
+      const text = await error.context.text();
+      try {
+        const json = JSON.parse(text);
+        if (json.error && json.details) return `${json.error}: ${json.details}`;
+        if (json.error) return json.error;
+      } catch {
+        if (text) return text;
+      }
+    }
+    if (error?.message) return error.message;
+  } catch {
+    // never let error extraction itself crash
+  }
+  return fallback;
+}
+
+function normalizePhoneNumber(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const hasPlusPrefix = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  return hasPlusPrefix ? `+${digits}` : digits;
+}
+
+function isValidPhoneNumber(value: string) {
+  const normalized = normalizePhoneNumber(value);
+  return /^\+?[1-9]\d{7,14}$/.test(normalized);
+}
