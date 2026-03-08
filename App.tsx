@@ -37,7 +37,9 @@ function AppInner() {
       .then(({ data: { session } }) => setSession(session))
       .catch(() => {})
       .finally(() => { clearTimeout(timeout); setLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
     return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
 

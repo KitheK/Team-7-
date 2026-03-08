@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, Modal, ActivityIndicator, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { OVERVIEW_ID, useWorkspace, type NegotiationTone } from '../context/WorkspaceContext';
 
@@ -81,11 +82,15 @@ export default function ScheduleAICallModal({
     setStep('loading-brief');
 
     try {
+      const accessToken = await getValidAccessToken();
       const { data, error } = await supabase.functions.invoke('negotiations-brief', {
         body: {
           vendor_name: vendor,
           workspace_id: workspaceId,
           threshold: 1000,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -164,6 +169,7 @@ export default function ScheduleAICallModal({
 
     try {
       const resolvedNegotiationId = negotiationId ?? await createNegotiationFallback();
+      const accessToken = await getValidAccessToken();
 
       const { data, error } = await supabase.functions.invoke('negotiations-start', {
         body: {
@@ -171,6 +177,10 @@ export default function ScheduleAICallModal({
           vendor_name: vendor,
           vendor_phone: normalizedPhone,
           tone,
+          provider: 'bland',
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -448,8 +458,9 @@ function createStyles(c: ColorScheme) {
 
 async function extractFunctionError(error: any, fallback: string): Promise<string> {
   try {
-    if (error?.context instanceof Response) {
-      const text = await error.context.text();
+    const response = (error instanceof FunctionsHttpError && error.context) || (error?.context instanceof Response ? error.context : null);
+    if (response) {
+      const text = await response.text();
       try {
         const json = JSON.parse(text);
         if (json.error && json.details) return `${json.error}: ${json.details}`;
@@ -463,6 +474,30 @@ async function extractFunctionError(error: any, fallback: string): Promise<strin
     // no-op
   }
   return fallback;
+}
+
+async function getValidAccessToken() {
+  if (!supabase) throw new Error('Supabase is not configured.');
+
+  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError) {
+    await supabase.auth.signOut();
+    throw new Error('Your session is invalid or expired. Please sign in again.');
+  }
+
+  const accessToken = refreshData.session?.access_token;
+  if (!accessToken) {
+    await supabase.auth.signOut();
+    throw new Error('Your session is invalid or expired. Please sign in again.');
+  }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
+  if (userError || !userData.user) {
+    await supabase.auth.signOut();
+    throw new Error('Your session is invalid or expired. Please sign in again.');
+  }
+
+  return accessToken;
 }
 
 function normalizePhoneNumber(value: string) {

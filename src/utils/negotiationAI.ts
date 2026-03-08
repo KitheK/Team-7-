@@ -1,3 +1,4 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 
 const HF_TOKEN = process.env.EXPO_PUBLIC_HF_TOKEN ?? '';
@@ -172,21 +173,19 @@ export async function generateScriptAndStartCall(
   if (error) {
     let detailedError = error.message ?? 'Edge Function call failed';
 
-    if (response) {
+    const res = (error instanceof FunctionsHttpError && error.context) || response;
+    if (res) {
       try {
-        const contentType = response.headers.get('Content-Type') ?? '';
-        const payload = contentType.includes('application/json')
-          ? await response.json()
-          : await response.text();
-
-        if (typeof payload === 'string' && payload.trim()) {
-          detailedError = payload;
-        } else if (payload && typeof payload === 'object') {
-          const parts = [payload.error, payload.details].filter(Boolean);
-          if (parts.length > 0) detailedError = parts.join(': ');
+        const text = await res.text();
+        try {
+          const payload = JSON.parse(text);
+          if (payload?.error && payload?.details) detailedError = `${payload.error}: ${payload.details}`;
+          else if (payload?.error) detailedError = payload.error;
+        } catch {
+          if (text?.trim()) detailedError = text;
         }
       } catch {
-        // Fall back to the generic Supabase error message if parsing fails.
+        // ignore
       }
     }
 

@@ -4,6 +4,54 @@ Self-hosted voice pipeline for automated vendor negotiation calls.
 Uses Pipecat to orchestrate Distil-Whisper (STT), Llama 3.2 3B (LLM),
 and Sesame CSM-1B (TTS) with Twilio telephony.
 
+## Getting your PIPECAT_WS_URL (no URL yet?)
+
+The Edge Function needs a **public WebSocket URL** so Twilio can stream audio to this server. Two ways to get one:
+
+### Option A: Run locally + ngrok (you need a GPU)
+
+1. **Start the voice server** (from this directory):
+   ```bash
+   cp .env.example .env
+   # Edit .env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN, Twilio vars
+   docker compose up --build
+   ```
+   The Pipecat WebSocket listens on **port 8765**.
+
+2. **Expose it with ngrok** (install from [ngrok.com](https://ngrok.com)):
+   ```bash
+   ngrok http 8765
+   ```
+   You’ll see a line like `Forwarding  https://abc123.ngrok-free.app -> http://localhost:8765`.
+
+3. **Your WebSocket URL** is that host with `wss://`:
+   ```text
+   wss://abc123.ngrok-free.app
+   ```
+   (Use your actual ngrok host; drop any path.)
+
+4. **Tell Supabase** (from the project root, not voice-server):
+   ```bash
+   npx supabase link --project-ref shgpurjhwftjvjeyalgv
+   npx supabase secrets set PIPECAT_WS_URL="wss://YOUR_NGROK_HOST"
+   ```
+   Example: `npx supabase secrets set PIPECAT_WS_URL="wss://abc123.ngrok-free.app"`
+
+5. Restart or re-run a call from the app. The “local” provider will use this URL.
+
+**Note:** With a free ngrok URL, the host changes each time you restart ngrok. Update the secret with the new `wss://...` URL when that happens.
+
+### Option B: Run on a cloud GPU (e.g. RunPod, AWS, Lambda)
+
+1. Start the stack on a machine with a **public IP** and open port **8765** (or put Caddy/nginx in front with TLS).
+2. Your URL is then `wss://<public-ip-or-domain>:8765` (or the HTTPS host if you use a reverse proxy).
+3. Set it in Supabase the same way:
+   ```bash
+   npx supabase secrets set PIPECAT_WS_URL="wss://YOUR_PUBLIC_HOST"
+   ```
+
+---
+
 ## Architecture
 
 ```
