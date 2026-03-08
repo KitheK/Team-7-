@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, Image, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
+
+const alfredLogo = require('../../assets/alfred-logo.png');
 
 type Props = { onDemoPress?: () => void };
 
@@ -32,7 +34,7 @@ export default function LoginScreen({ onDemoPress }: Props) {
       <View style={s.container}>
         <View style={[s.card, isNative && s.cardNative]}>
           <View style={s.logoRow}>
-            <View style={s.logoIcon}><Feather name="layers" size={24} color={c.primary} /></View>
+            <Image source={alfredLogo} style={s.logoImg} resizeMode="contain" />
           </View>
           <Text style={s.brand}>Alfred</Text>
           <Text style={s.subtitle}>{isSignUp ? 'Create your account' : 'Business finances, simplified'}</Text>
@@ -80,7 +82,7 @@ function createStyles(c: ReturnType<typeof useColors>) {
     card: { width: '100%', maxWidth: 400, backgroundColor: c.card, borderRadius: 20, padding: 36, borderWidth: 1, borderColor: c.cardBorder },
     cardNative: { padding: 24, borderRadius: 16 },
     logoRow: { alignItems: 'center', marginBottom: 16 },
-    logoIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' },
+    logoImg: { width: 96, height: 96 },
     brand: { fontSize: 32, fontFamily: 'PlayfairDisplay_700Bold', color: c.text, textAlign: 'center', marginBottom: 4, letterSpacing: 0.5 },
     subtitle: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 28 },
     label: { fontSize: 13, fontFamily: 'Jost_500Medium', color: c.text, marginBottom: 6, marginTop: 14 },

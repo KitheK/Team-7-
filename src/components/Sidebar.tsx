@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
+import { View, Image, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useWorkspace, workspaceLabel, OVERVIEW_ID } from '../context/WorkspaceContext';
 import NewWorkspaceModal from './NewWorkspaceModal';
 import theme from '../../constants/theme';
 import Typography from './ui/Typography';
+
+const alfredLogo = require('../../assets/alfred-logo.png');
 
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -35,9 +37,7 @@ export default function Sidebar({ activeItem, onItemPress, onLogout, onClose }: 
   return (
     <View style={[s.container, isNative && s.containerNative]}>
       <View style={[s.logoSection, isNative && s.logoSectionNative]}>
-        <View style={s.logoIcon}>
-          <Feather name="layers" size={isNative ? 20 : 18} color={theme.colors.primary} />
-        </View>
+        <Image source={alfredLogo} style={s.logoImg} resizeMode="contain" />
         <View style={s.logoTextWrap}>
           <Typography variant="title">Alfred</Typography>
           <Typography variant="caption" tone="muted" style={s.logoSubtitle}>Business finances</Typography>
@@ -170,16 +170,10 @@ function createStyles() {
       paddingHorizontal: theme.spacing.xs,
     },
     logoSectionNative: { marginBottom: 20, paddingTop: 4 },
-    logoIcon: {
+    logoImg: {
       width: 40,
       height: 40,
-      borderRadius: theme.radius.md,
-      backgroundColor: theme.colors.primarySoft,
-      alignItems: 'center',
-      justifyContent: 'center',
       marginRight: theme.spacing.sm,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
     },
     logoTextWrap: { flex: 1, minWidth: 0 },
     logoSubtitle: { marginTop: 1 },

@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, Image, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import theme from '../../constants/theme';
 import Typography from './ui/Typography';
+
+const alfredLogo = require('../../assets/alfred-logo.png');
 
 type Props = {
   userName: string;
@@ -40,7 +42,8 @@ export default function TopBar({
     return (
       <View style={styles.nativeBar}>
         <View style={styles.nativeBrand}>
-          <Typography variant="title" style={styles.brandName}>Alfred</Typography>
+          <Image source={alfredLogo} style={styles.nativeBrandLogo} resizeMode="contain" />
+          <Typography variant="title" style={styles.nativeBrandName}>Alfred</Typography>
         </View>
         <View style={styles.nativeRight}>
           <Pressable onPress={onMonthPress} style={styles.nativeMonthBtn}>
@@ -70,6 +73,7 @@ export default function TopBar({
           pressed && styles.pressDown,
         ]}
       >
+        <Image source={alfredLogo} style={styles.brandLogo} resizeMode="contain" />
         <Typography variant="title" style={styles.brandName}>Alfred</Typography>
       </Pressable>
 
@@ -154,8 +158,14 @@ const styles = StyleSheet.create({
   },
   nativeBrand: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 6,
+    alignItems: 'center',
+  },
+  nativeBrandName: {
+    color: t.colors.text,
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 20,
+    letterSpacing: 0.5,
+    marginLeft: 4,
   },
   nativeRight: {
     flexDirection: 'row',
@@ -201,8 +211,8 @@ const styles = StyleSheet.create({
   },
   brandBtn: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    paddingVertical: 6,
+    alignItems: 'center',
+    paddingVertical: 2,
     paddingHorizontal: 4,
     borderRadius: 8,
     marginRight: 12,
@@ -210,11 +220,20 @@ const styles = StyleSheet.create({
   brandBtnHover: {
     opacity: 0.8,
   },
+  brandLogo: {
+    width: 52,
+    height: 52,
+  },
   brandName: {
     color: t.colors.text,
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 28,
+    fontSize: 24,
     letterSpacing: 0.5,
+    marginLeft: 6,
+  },
+  nativeBrandLogo: {
+    width: 42,
+    height: 42,
   },
   navGroup: {
     flex: 1,
